@@ -1,0 +1,6 @@
+@VTInformatica_HostAddress = http://localhost:5158
+
+GET {{VTInformatica_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
