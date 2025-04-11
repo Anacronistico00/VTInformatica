@@ -7,6 +7,8 @@ namespace VTInformatica.Models
     {
         public int Id { get; set; }
 
+        public string Email { get; set; }
+
         public string? UserId { get; set; }
 
         [ForeignKey("UserId")]
@@ -17,5 +19,6 @@ namespace VTInformatica.Models
         public ICollection<CartItem> Items { get; set; } = new List<CartItem>();
         
         public decimal? TotalPrice { get; set; }
+
     }
 }

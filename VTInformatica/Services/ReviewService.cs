@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using VTInformatica.Data;
+using VTInformatica.DTOs.Product;
 using VTInformatica.DTOs.Review;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
@@ -15,50 +16,69 @@ namespace VTInformatica.Services
             _context = context;
         }
 
-        public async Task<List<ReviewDto>> GetAllAsync()
+        public async Task<List<GetReviewDto>> GetAllAsync()
         {
             return await _context.Reviews
-                .Include(r => r.User)
-                .Include(r => r.Product)
-                .Select(r => new ReviewDto
+                .Select(r => new GetReviewDto
                 {
                     ReviewId = r.ReviewId,
+                    CustomerEmail = r.Email,
                     ReviewRating = r.ReviewRating,
                     ReviewComment = r.ReviewComment,
                     CreatedAt = r.CreatedAt,
-                    UserId = r.UserId,
                     ProductId = r.ProductId,
                 })
                 .ToListAsync();
         }
 
-        public async Task<ReviewDto> GetByIdAsync(int id)
+        public async Task<GetReviewDto> GetByIdAsync(int id)
         {
             var r = await _context.Reviews
-                .Include(r => r.User)
-                .Include(r => r.Product)
                 .FirstOrDefaultAsync(r => r.ReviewId == id);
 
             if (r == null) return null;
 
-            return new ReviewDto
+            return new GetReviewDto
             {
                 ReviewId = r.ReviewId,
+                CustomerEmail = r.Email,
                 ReviewRating = r.ReviewRating,
                 ReviewComment = r.ReviewComment,
                 CreatedAt = r.CreatedAt,
-                UserId = r.UserId,
                 ProductId = r.ProductId,
             };
         }
 
-        public async Task<ReviewDto> CreateAsync(CreateReviewDto dto)
+        public async Task<List<GetReviewDto>> GetByEmailAsync(string email)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user == null)
+                return new List<GetReviewDto>();
+
+            var reviews = await _context.Reviews
+                .Where(r => r.Email == user.Email)
+                .Select(r => new GetReviewDto
+                {
+                    ReviewId = r.ReviewId,
+                    CustomerEmail = r.Email,
+                    ReviewRating = r.ReviewRating,
+                    ReviewComment = r.ReviewComment,
+                    CreatedAt = r.CreatedAt,
+                    ProductId = r.ProductId,
+                })
+                .ToListAsync();
+
+            return reviews;
+        }
+
+        public async Task<GetReviewDto> CreateAsync(CreateReviewDto dto)
         {
             var review = new Review
             {
                 ReviewRating = dto.ReviewRating,
                 ReviewComment = dto.ReviewComment,
                 UserId = dto.UserId,
+                Email = dto.Email,
                 ProductId = dto.ProductId,
             };
 

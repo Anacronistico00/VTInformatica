@@ -8,6 +8,6 @@ namespace VTInformatica.DTOs.Review
         public string Message { get; set; }
 
         [Required]
-        public ICollection<ReviewDto> Reviews { get; set; }
+        public ICollection<GetReviewDto> Reviews { get; set; }
     }
 }

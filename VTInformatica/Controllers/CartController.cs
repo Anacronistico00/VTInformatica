@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
+using System.Security.Claims;
 using VTInformatica.DTOs.Cart;
 using VTInformatica.Interfaces;
 
@@ -19,12 +20,12 @@ namespace VTInformatica.Controllers
             _cartService = cartService;
         }
 
-        [HttpGet("{userId}")]
-        public async Task<IActionResult> GetCart(string userId)
+        [HttpGet("{email}")]
+        public async Task<IActionResult> GetCart(string email)
         {
             try
             {
-                var cart = await _cartService.GetCartByUserIdAsync(userId);
+                var cart = await _cartService.GetCartByEmailAsync(email);
                 if (cart == null)
                 {
                     return NotFound(new { message = "Cart not found." });
@@ -38,17 +39,23 @@ namespace VTInformatica.Controllers
             }
         }
 
-        [HttpPost("{userId}/add")]
-        public async Task<IActionResult> AddItem(string userId, [FromBody] CartItemDto dto)
+        [HttpPost("{email}/add")]
+        public async Task<IActionResult> AddItem(string email, [FromBody] CartItemDto dto)
         {
             try
             {
-                var updatedCart = await _cartService.AddItemAsync(userId, dto);
-                return Ok(updatedCart);
+                var userId = User.FindFirst(ClaimTypes.Email)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                var updatedCart = await _cartService.AddItemAsync(email, dto);
+                return Ok(new { Message = "Item Added succesfully!"});
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Errore during add item to cart");
+                Log.Error(ex, "Error during add item to cart");
                 return StatusCode(500, "Internal server error.");
             }
         }
@@ -63,10 +70,11 @@ namespace VTInformatica.Controllers
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Errore removing item from cart");
+                Log.Error(ex, "Error removing item from cart");
                 return StatusCode(500, "Internal server error.");
             }
         }
+
         [HttpPatch("{cartItemId}/delete/byquantity")]
         public async Task<IActionResult> RemoveItemQuantity(int cartItemId, [FromQuery] int quantityToRemove)
         {
@@ -87,12 +95,12 @@ namespace VTInformatica.Controllers
             }
         }
 
-        [HttpDelete("{userId}/clear")]
-        public async Task<IActionResult> ClearCart(string userId)
+        [HttpDelete("{email}/clear")]
+        public async Task<IActionResult> ClearCart(string email)
         {
             try
             {
-                var success = await _cartService.ClearCartAsync(userId);
+                var success = await _cartService.ClearCartAsync(email);
                 return success ? NoContent() : NotFound();
             }
             catch (Exception ex)

@@ -11,6 +11,8 @@ namespace VTInformatica.Models
         [Required]
         public string OrderNumber { get; set; } = Guid.NewGuid().ToString().Substring(0, 8).ToUpper();
 
+        public string CustomerEmail { get; set; }
+
         public string CustomerId { get; set; }
 
         [ForeignKey("CustomerId")]

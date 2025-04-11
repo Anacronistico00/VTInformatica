@@ -73,13 +73,7 @@ namespace VTInformatica.Controllers
                         ReviewComment = r.ReviewComment,
                         ReviewRating = r.ReviewRating,
                         CreatedAt = r.CreatedAt,
-                        UserId = r.UserId,
-                        User = r.User != null ? new UserDto
-                        {
-                            Email = r.User.Email,
-                            FullName = r.User.FirstName + " " + r.User.LastName,
-                            IsActive = r.User.IsActive
-                        } : null
+                        CustomerEmail = r.Email
                     }).ToList()
                     : new List<GetReviewDto>()
                 });
@@ -143,13 +137,7 @@ namespace VTInformatica.Controllers
                         ReviewComment = r.ReviewComment,
                         ReviewRating = r.ReviewRating,
                         CreatedAt = r.CreatedAt,
-                        UserId = r.UserId,
-                        User = r.User != null ? new UserDto
-                        {
-                            Email = r.User.Email,
-                            FullName = r.User.FirstName + " " + r.User.LastName,
-                            IsActive = r.User.IsActive
-                        } : null
+                        CustomerEmail = r.Email
                     }).ToList()
                     : new List<GetReviewDto>()
                 };

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VTInformatica.Data;
 
@@ -11,9 +12,11 @@ using VTInformatica.Data;
 namespace VTInformatica.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250411092112_modifiedGetByIdToEmail")]
+    partial class modifiedGetByIdToEmail
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -164,22 +167,19 @@ namespace VTInformatica.Migrations
                     b.HasData(
                         new
                         {
-                            Id = "7d8684d8-6135-4965-b9cb-e50eaf6f02f8",
-                            ConcurrencyStamp = "7d8684d8-6135-4965-b9cb-e50eaf6f02f8",
+                            Id = "0f7a4649-ad09-411f-a879-2deb21e60660",
                             Name = "Admin",
                             NormalizedName = "ADMIN"
                         },
                         new
                         {
-                            Id = "70d6b622-4270-41af-82ff-0cd1265e69c7",
-                            ConcurrencyStamp = "70d6b622-4270-41af-82ff-0cd1265e69c7",
+                            Id = "4e61cd15-eb56-4dd3-80ac-c4d59fbd1849",
                             Name = "Seller",
                             NormalizedName = "SELLER"
                         },
                         new
                         {
-                            Id = "0ddaa4f4-bde9-4844-8e00-9671f09fc6b8",
-                            ConcurrencyStamp = "0ddaa4f4-bde9-4844-8e00-9671f09fc6b8",
+                            Id = "3d256867-27c7-4d0c-9462-73da5db4cb3e",
                             Name = "Customer",
                             NormalizedName = "CUSTOMER"
                         });

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using VTInformatica.DTOs.Order;
@@ -27,6 +28,9 @@ namespace VTInformatica.Controllers
             try
             {
                 var orders = await _orderService.GetAllAsync();
+                if (orders == null || !orders.Any())
+                    return NotFound("No orders found.");
+
                 return Ok(orders);
             }
             catch (Exception ex)
@@ -43,7 +47,10 @@ namespace VTInformatica.Controllers
             try
             {
                 var order = await _orderService.GetByIdAsync(id);
-                return order is null ? NotFound() : Ok(order);
+                if (order == null)
+                    return NotFound("No orders found.");
+
+                return Ok(order);
             }
             catch (Exception ex)
             {
@@ -52,29 +59,32 @@ namespace VTInformatica.Controllers
             }
         }
 
-        [HttpGet("user/{userId}")]
+        [HttpGet("user/email/{email}")]
         [Authorize]
-        public async Task<IActionResult> GetOrdersByUser(string userId)
+        public async Task<IActionResult> GetOrdersByEmail(string email)
         {
             try
             {
-                var orders = await _orderService.GetOrdersByUserIdAsync(userId);
+                var orders = await _orderService.GetOrdersByEmailAsync(email);
+                if (orders == null || !orders.Any())
+                    return NotFound("No orders found.");
+
                 return Ok(orders);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "An error occurred while retrieving orders by user ID.");
+                Log.Error(ex, "An error occurred while retrieving orders by email.");
                 return StatusCode(500, "Internal server error.");
             }
         }
 
-        [HttpPost("from-cart/{userId}")]
+        [HttpPost("from-cart/{userEmail}")]
         [Authorize]
-        public async Task<IActionResult> CreateOrderFromCart(string userId)
+        public async Task<IActionResult> CreateOrderFromCart(string userEmail)
         {
             try
             {
-                var order = await _orderService.CreateOrderFromCartAsync(userId);
+                var order = await _orderService.CreateOrderFromCartAsync(userEmail);
                 return CreatedAtAction(nameof(Get), new { id = order.Id }, order);
             }
             catch (Exception ex)

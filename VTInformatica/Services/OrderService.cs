@@ -20,29 +20,28 @@ namespace VTInformatica.Services
             _context = context;
         }
 
-        public async Task<List<OrderDto>> GetAllAsync()
+        public async Task<List<GetOrderDto>> GetAllAsync()
         {
             var orders = await _context.Orders
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
                 .ToListAsync();
 
-            return orders.Select(o => new OrderDto
+            return orders.Select(o => new GetOrderDto
             {
                 Id = o.Id,
                 OrderNumber = o.OrderNumber,
-                CustomerId = o.CustomerId,
+                CustomerEmail = o.CustomerEmail,
                 CreatedAt = o.CreatedAt,
                 CustomerComment = o.CustomerComment,
-                Items = o.OrderItems.Select(oi => new OrderItemDto
+                Items = o.OrderItems.Select(oi => new GetOrderItemsDto
                 {
-                    ProductId = oi.ProductId,
                     Quantity = oi.Quantity
                 }).ToList()
             }).ToList();
         }
 
-        public async Task<OrderDto?> GetByIdAsync(int id)
+        public async Task<GetOrderDto?> GetByIdAsync(int id)
         {
             var order = await _context.Orders
                 .Include(o => o.OrderItems)
@@ -51,25 +50,24 @@ namespace VTInformatica.Services
 
             if (order == null) return null;
 
-            return new OrderDto
+            return new GetOrderDto
             {
                 Id = order.Id,
                 OrderNumber = order.OrderNumber,
-                CustomerId = order.CustomerId,
+                CustomerEmail = order.CustomerEmail,
                 CreatedAt = order.CreatedAt,
                 CustomerComment = order.CustomerComment,
-                Items = order.OrderItems.Select(oi => new OrderItemDto
+                Items = order.OrderItems.Select(oi => new GetOrderItemsDto
                 {
-                    ProductId = oi.ProductId,
                     Quantity = oi.Quantity
                 }).ToList()
             };
         }
 
-        public async Task<List<GetOrderDto>> GetOrdersByUserIdAsync(string userId)
+        public async Task<List<GetOrderDto>> GetOrdersByEmailAsync(string email)
         {
             var orders = await _context.Orders
-                .Where(o => o.CustomerId == userId && !o.IsDeleted)
+                .Where(o => o.CustomerEmail == email && !o.IsDeleted)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Manufacturer)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Category)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.SubCategory)
@@ -81,7 +79,7 @@ namespace VTInformatica.Services
             {
                 Id = o.Id,
                 OrderNumber = o.OrderNumber,
-                CustomerId = o.CustomerId,
+                CustomerEmail = o.CustomerEmail,
                 CreatedAt = o.CreatedAt,
                 CustomerComment = o.CustomerComment,
                 Items = o.OrderItems.Select(oi => new GetOrderItemsDto
@@ -89,55 +87,23 @@ namespace VTInformatica.Services
                     Quantity = oi.Quantity,
                     Product = new GetOrderProductDto
                     {
-                        Id = oi.Product.Id,
                         Name = oi.Product.Name,
-                        Description = oi.Product.Description,
-                        FullDescription = oi.Product.FullDescription,
                         Price = oi.Product.Price,
-                        Quantity = oi.Product.Quantity,
-                        ManufacturerId = oi.Product.ManufacturerId,
-                        Manufacturer = oi.Product.Manufacturer != null ? new ManufacturerDto
-                        {
-                            ManufacturerName = oi.Product.Manufacturer.ManufacturerName,
-                            ManufacturerLogo = oi.Product.Manufacturer.ManufacturerLogo
-                        } : null,
-                        Category = oi.Product.Category != null ? new CategoryDto
-                        {
-                            Id = oi.Product.Category.Id,
-                            Name = oi.Product.Category.Name
-                        } : null,
-                        SubCategory = oi.Product.SubCategory != null ? new SubCategoryDto
-                        {
-                            Id = oi.Product.SubCategory.Id,
-                            Name = oi.Product.SubCategory.Name,
-                            CategoryId = oi.Product.SubCategory.CategoryId
-                        } : null,
                         ProductImages = oi.Product.ProductImages != null
                             ? oi.Product.ProductImages.Select(img => new ProductImageDto
                             {
                                 ImageUrl = img.ImageUrl
                             }).ToList()
-                            : new List<ProductImageDto>(),
-                        Reviews = oi.Product.Reviews != null
-                            ? oi.Product.Reviews.Select(r => new ReviewDto
-                            {
-                                ReviewId = r.ReviewId,
-                                ReviewRating = r.ReviewRating,
-                                ReviewComment = r.ReviewComment,
-                                CreatedAt = r.CreatedAt,
-                                UserId = r.UserId,
-                                ProductId = r.ProductId
-                            }).ToList()
-                            : new List<ReviewDto>()
+                            : new List<ProductImageDto>()
                     }
                 }).ToList()
             }).ToList();
         }
 
-        public async Task<OrderDto> CreateOrderFromCartAsync(string userId)
+        public async Task<GetOrderDto> CreateOrderFromCartAsync(string userEmail)
         {
             var cart = await _context.Carts.Include(c => c.Items)
-                                            .FirstOrDefaultAsync(c => c.UserId == userId);
+                                            .FirstOrDefaultAsync(c => c.Email == userEmail);
 
             if (cart == null || !cart.Items.Any())
             {
@@ -146,7 +112,8 @@ namespace VTInformatica.Services
 
             var order = new Order
             {
-                CustomerId = userId,
+                CustomerId = cart.UserId,
+                CustomerEmail = userEmail,
                 CustomerComment = "Ordine creato dal carrello",
                 OrderItems = cart.Items.Select(item => new OrderItem
                 {

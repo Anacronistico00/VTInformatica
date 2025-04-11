@@ -6,11 +6,9 @@ namespace VTInformatica.DTOs.Order
 {
     public class GetOrderItemsDto
     {
-
-        [ForeignKey("ProductId")]
-        public GetOrderProductDto Product { get; set; }
-
         [Required]
         public int Quantity { get; set; }
+
+        public GetOrderProductDto Product { get; set; }
     }
 }

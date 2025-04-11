@@ -6,6 +6,6 @@ namespace VTInformatica.DTOs.Account
     {
         [Required]
         public required string message { get; set; }
-        public ICollection<UserDto> users { get; set; }
+        public ICollection<GetUserDto> users { get; set; }
     }
 }

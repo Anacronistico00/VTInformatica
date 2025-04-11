@@ -1,23 +1,32 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using VTInformatica.Data;
 using VTInformatica.DTOs.Cart;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
+using VTInformatica.Models.Auth;
 
 namespace VTInformatica.Services
 {
     public class CartService : ICartService
     {
         private readonly ApplicationDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public CartService(ApplicationDbContext context)
+        public CartService(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
-        public async Task<CartDto?> GetCartByUserIdAsync(string userId)
+        public async Task<CartDto?> GetCartByEmailAsync(string email)
         {
-            var cart = await _context.Carts.Include(c => c.Items).ThenInclude(i => i.Product).FirstOrDefaultAsync(c => c.UserId == userId);
+            var cart = await _context.Carts
+                .Include(c => c.Items)
+                .ThenInclude(i => i.Product)
+                .FirstOrDefaultAsync(c => c.Email == email);
+
             if (cart == null) return null;
 
             var totalPrice = cart.Items.Sum(i => i.Quantity * i.Product.Price);
@@ -25,8 +34,7 @@ namespace VTInformatica.Services
             return new CartDto
             {
                 Id = cart.Id,
-                UserId = cart.UserId,
-                
+                Email = cart.Email,
                 Items = cart.Items.Select(i => new CartItemDto
                 {
                     Id = i.Id,
@@ -37,13 +45,24 @@ namespace VTInformatica.Services
             };
         }
 
-        public async Task<CartDto> AddItemAsync(string userId, CartItemDto itemDto)
+        public async Task<CartDto> AddItemAsync(string email, CartItemDto itemDto)
         {
-            var cart = await _context.Carts.Include(c => c.Items).FirstOrDefaultAsync(c => c.UserId == userId);
+            var loggedInUser = await _userManager.FindByEmailAsync(email);
+
+            if (loggedInUser == null)
+            {
+                throw new InvalidOperationException("User not found.");
+            }
+
+            var userId = loggedInUser.Id;
+
+            var cart = await _context.Carts
+                .Include(c => c.Items).ThenInclude(i => i.Product)
+                .FirstOrDefaultAsync(c => c.Email == email);
 
             if (cart == null)
             {
-                cart = new Cart { UserId = userId, Items = new List<CartItem>() };
+                cart = new Cart { Email = email, Items = new List<CartItem>(), UserId = userId };
                 _context.Carts.Add(cart);
             }
 
@@ -52,6 +71,7 @@ namespace VTInformatica.Services
             if (existingItem != null)
             {
                 existingItem.Quantity += itemDto.Quantity;
+                _context.Entry(existingItem).State = EntityState.Modified;
             }
             else
             {
@@ -62,17 +82,28 @@ namespace VTInformatica.Services
                 };
                 cart.Items.Add(item);
             }
+            await _context.SaveChangesAsync();
+
+            var updatedCart = await _context.Carts
+                .Include(c => c.Items).ThenInclude(i => i.Product)
+                .FirstOrDefaultAsync(c => c.Email == email);
+
+            var totalPrice = updatedCart.Items
+                .Where(i => i.Product != null)
+                .Sum(i => i.Quantity * i.Product.Price);
+
+            updatedCart.TotalPrice = totalPrice;
 
             await _context.SaveChangesAsync();
 
-            return await GetCartByUserIdAsync(userId);
+            return await GetCartByEmailAsync(email);
         }
-
 
         public async Task<bool> RemoveItemAsync(int cartItemId)
         {
             var item = await _context.CartItems.FindAsync(cartItemId);
             if (item == null) return false;
+
             _context.CartItems.Remove(item);
             await _context.SaveChangesAsync();
             return true;
@@ -99,10 +130,11 @@ namespace VTInformatica.Services
             return true;
         }
 
-        public async Task<bool> ClearCartAsync(string userId)
+        public async Task<bool> ClearCartAsync(string email)
         {
-            var cart = await _context.Carts.Include(c => c.Items).FirstOrDefaultAsync(c => c.UserId == userId);
+            var cart = await _context.Carts.Include(c => c.Items).FirstOrDefaultAsync(c => c.Email == email);
             if (cart == null) return false;
+
             _context.CartItems.RemoveRange(cart.Items);
             await _context.SaveChangesAsync();
             return true;

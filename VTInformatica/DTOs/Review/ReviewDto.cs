@@ -6,7 +6,7 @@
         public int ReviewRating { get; set; }
         public string ReviewComment { get; set; }
         public DateTime CreatedAt { get; set; }
-        public string UserId { get; set; }
+        public string CustomerEmail { get; set; }
         public int ProductId { get; set; }
     }
 }

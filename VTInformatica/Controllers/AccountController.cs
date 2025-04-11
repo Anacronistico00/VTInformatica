@@ -128,7 +128,6 @@ namespace VTInformatica.Controllers
 
             claims.Add(new Claim(ClaimTypes.Email, user.Email));
             claims.Add(new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"));
-            claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id));
             foreach (var role in roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));
@@ -171,11 +170,11 @@ namespace VTInformatica.Controllers
             return Ok(new { message = "Utente aggiornato con successo." });
         }
 
-        [HttpPut("DeleteUser/{id}")]
+        [HttpPut("DeleteUserByEmail/{email}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteUser(string id)
+        public async Task<IActionResult> DeleteUser(string email)
         {
-            var success = await _accountService.DeleteUserAsync(id);
+            var success = await _accountService.DeleteUserAsync(email);
             if (!success)
                 return NotFound(new { message = "Utente non trovato o errore durante la cancellazione." });
 

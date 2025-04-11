@@ -13,17 +13,16 @@ namespace VTInformatica.Services
             _userManager = userManager;
         }
 
-        public async Task<List<UserDto>> GetAllUsersAsync()
+        public async Task<List<GetUserDto>> GetAllUsersAsync()
         {
             var users = _userManager.Users.ToList();
 
-            var result = new List<UserDto>();
+            var result = new List<GetUserDto>();
 
             foreach (var user in users)
             {
-                result.Add(new UserDto
+                result.Add(new GetUserDto
                 {
-                    Id = user.Id,
                     Email = user.Email,
                     FullName = $"{user.FirstName} {user.LastName}",
                     BirthDate = user.BirthDate,
@@ -49,9 +48,9 @@ namespace VTInformatica.Services
             return result.Succeeded;
         }
 
-        public async Task<bool> DeleteUserAsync(string userId)
+        public async Task<bool> DeleteUserAsync(string email)
         {
-            var user = await _userManager.FindByIdAsync(userId);
+            var user = await _userManager.FindByEmailAsync(email);
             if (user == null)
                 return false;
 
