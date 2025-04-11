@@ -7,7 +7,7 @@ using VTInformatica.Interfaces;
 
 namespace VTInformatica.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     [ApiController]
     public class ManufacturerController : ControllerBase
     {
