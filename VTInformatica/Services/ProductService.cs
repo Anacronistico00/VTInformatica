@@ -47,6 +47,22 @@ namespace VTInformatica.Services
             return product;
         }
 
+        public async Task<List<Product>> SearchProductsAsync(string query)
+        {
+            return await _context.Products
+                .Include(p => p.Manufacturer)
+                .Include(p => p.Category)
+                .Include(p => p.SubCategory)
+                .Include(p => p.ProductImages)
+                .Include(p => p.Reviews)
+                .Where(p =>
+                    p.Name.ToLower().Contains(query.ToLower()) ||
+                    p.Description.ToLower().Contains(query.ToLower()) ||
+                    (p.FullDescription != null && p.FullDescription.ToLower().Contains(query.ToLower()))
+                )
+                .ToListAsync();
+        }
+
         public async Task<Product> CreateAsync(CreateProductDto dto)
         {
             var subCategory = await _context.SubCategories.FirstOrDefaultAsync(sc => sc.Id == dto.SubCategoryId);
@@ -148,7 +164,6 @@ namespace VTInformatica.Services
             {
             var result = products.Select(p => new GetProductDto
                 {
-                    Id = p.Id,
                     ManufacturerId = p.ManufacturerId,
                     Manufacturer = p.Manufacturer != null ? new CreateManufacturerDto()
                         {
@@ -192,7 +207,6 @@ namespace VTInformatica.Services
 
             var result = products.Select(p => new GetProductDto
             {
-                Id = p.Id,
                 ManufacturerId = p.ManufacturerId,
                 Manufacturer = p.Manufacturer != null ? new CreateManufacturerDto()
                     {
@@ -233,7 +247,6 @@ namespace VTInformatica.Services
 
             var result = products.Select(p => new GetProductDto
             {
-                Id = p.Id,
                 ManufacturerId = p.ManufacturerId,
                 Manufacturer = p.Manufacturer != null ? new CreateManufacturerDto()
                     {

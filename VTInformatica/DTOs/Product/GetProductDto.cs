@@ -9,8 +9,6 @@ namespace VTInformatica.DTOs.Product
 {
     public class GetProductDto
     {
-        public int Id { get; set; }
-
         [Required]
         public string Name { get; set; }
 

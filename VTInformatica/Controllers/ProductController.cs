@@ -151,6 +151,67 @@ namespace VTInformatica.Controllers
             }
         }
 
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchProducts([FromQuery] string query)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(query))
+                    return BadRequest(new { message = "Query string cannot be empty." });
+
+                var products = await _productService.SearchProductsAsync(query);
+
+                if (products == null || !products.Any())
+                    return NotFound(new { message = "No products found matching the query." });
+
+                var dtos = products.Select(p => new ProductDto
+                {
+                    Id = p.Id,
+                    ManufacturerId = p.ManufacturerId,
+                    Manufacturer = p.Manufacturer != null ? new ManufacturerDto()
+                    {
+                        ManufacturerName = p.Manufacturer.ManufacturerName,
+                        ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
+                    } : null,
+                    Name = p.Name,
+                    Description = p.Description,
+                    FullDescription = p.FullDescription,
+                    Price = p.Price,
+                    Quantity = p.Quantity,
+                    Category = p.Category != null ? new CategoryDto()
+                    {
+                        Id = p.Category.Id,
+                        Name = p.Category.Name,
+                    } : null,
+                    SubCategory = p.SubCategory != null ? new SubCategoryDto()
+                    {
+                        Id = p.SubCategory.Id,
+                        Name = p.SubCategory.Name,
+                        CategoryId = p.SubCategory.CategoryId,
+                    } : null,
+                    ProductImages = p.ProductImages?.Select(img => new ProductImageDto
+                    {
+                        ImageUrl = img.ImageUrl
+                    }).ToList() ?? new List<ProductImageDto>(),
+                    Reviews = p.Reviews?.Select(r => new GetReviewDto
+                    {
+                        ReviewId = r.ReviewId,
+                        ReviewComment = r.ReviewComment,
+                        ReviewRating = r.ReviewRating,
+                        CreatedAt = r.CreatedAt,
+                        CustomerEmail = r.Email
+                    }).ToList() ?? new List<GetReviewDto>()
+                });
+
+                return Ok(dtos);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error during product search");
+                return StatusCode(500, "Internal server error.");
+            }
+        }
+
         [HttpPost]
         [Authorize(Roles = "Admin,Seller")]
         public async Task<IActionResult> Create([FromBody] CreateProductDto dto)
