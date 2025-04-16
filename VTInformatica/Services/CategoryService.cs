@@ -32,8 +32,16 @@ namespace VTInformatica.Services
 
         public async Task<CategoryDto?> GetByIdAsync(int id)
         {
-            var c = await _context.Categories.FindAsync(id);
-            return c == null ? null : new CategoryDto { Id = c.Id, Name = c.Name };
+            var c = await _context.Categories.Include(c => c.SubCategories).FirstOrDefaultAsync(c => c.Id == id);
+            return c == null ? null : new CategoryDto { 
+                Id = c.Id, 
+                Name = c.Name,
+                SubCategories = c.SubCategories != null ? c.SubCategories.Select(sc => new GetSubCategoryDto
+                {
+                    Id = sc.Id,
+                    Name = sc.Name,
+                }).ToList() : null
+            };
         }
 
         public async Task<CategoryDto> CreateAsync(CategoryDto dto)
