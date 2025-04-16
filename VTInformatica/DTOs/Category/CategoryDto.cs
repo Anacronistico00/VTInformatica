@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using VTInformatica.DTOs.SubCategory;
 
 namespace VTInformatica.DTOs.Category
 {
@@ -7,5 +8,6 @@ namespace VTInformatica.DTOs.Category
         [Key]
         public int Id { get; set; }
         public string Name { get; set; }
+        public ICollection<GetSubCategoryDto>? SubCategories { get; set; }
     }
 }
