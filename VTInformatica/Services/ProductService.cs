@@ -170,13 +170,14 @@ namespace VTInformatica.Services
                             ManufacturerName = p.Manufacturer.ManufacturerName,
                             ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
                         } : null,
+                    Id = p.Id,
                     Name = p.Name,
                     Description = p.Description,
                     FullDescription = p.FullDescription,
                     Price = p.Price,
                     Quantity = p.Quantity,
-                    Category = p.Category != null ? new CategoryDto
-                        {
+                    Category = p.Category != null ? new GetCategoryDto
+                    {
                             Id = p.Category.Id,
                             Name = p.Category.Name,
                         } : null,
@@ -213,13 +214,14 @@ namespace VTInformatica.Services
                         ManufacturerName = p.Manufacturer.ManufacturerName,
                         ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
                     } : null,
+                Id = p.Id,
                 Name = p.Name,
                 Description = p.Description,
                 FullDescription = p.FullDescription,
                 Price = p.Price,
                 Quantity = p.Quantity,
-                Category = p.Category != null ? new CategoryDto
-                    {
+                Category = p.Category != null ? new GetCategoryDto
+                {
                         Id = p.Category.Id,
                         Name = p.Category.Name,
                     } : null,
@@ -253,12 +255,13 @@ namespace VTInformatica.Services
                         ManufacturerName = p.Manufacturer.ManufacturerName,
                         ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
                     } : null,
+                Id = p.Id,
                 Name = p.Name,
                 Description = p.Description,
                 FullDescription = p.FullDescription,
                 Price = p.Price,
                 Quantity = p.Quantity,
-                Category = p.Category != null ? new CategoryDto
+                Category = p.Category != null ? new GetCategoryDto
                     {
                         Id = p.Category.Id,
                         Name = p.Category.Name,

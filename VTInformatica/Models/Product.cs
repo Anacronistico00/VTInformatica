@@ -5,6 +5,7 @@ namespace VTInformatica.Models
 {
     public class Product
     {
+        [Key]
         public int Id { get; set; }
 
         public int ManufacturerId { get; set; }
