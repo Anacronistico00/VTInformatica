@@ -20,6 +20,6 @@ namespace VTInformatica.DTOs.Account
         [Required]
         public DateOnly BirthDate { get; set; }
 
-        public bool IsActive { get; set; }
+        public bool IsActive { get; set; } = true;
     }
 }

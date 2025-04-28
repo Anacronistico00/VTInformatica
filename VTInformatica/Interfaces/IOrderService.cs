@@ -9,5 +9,6 @@ namespace VTInformatica.Interfaces
         Task<List<GetOrderDto>> GetOrdersByEmailAsync(string Email);
         Task<GetOrderDto> CreateOrderFromCartAsync(string userEmail);
         Task<bool> SoftDeleteAsync(int id);
+        Task<bool> RestoreAsync(int orderId);
     }
 }

@@ -59,7 +59,7 @@ namespace VTInformatica.Controllers
             }
         }
 
-        [HttpGet("user/email/{email}")]
+        [HttpGet("user/{email}")]
         [Authorize]
         public async Task<IActionResult> GetOrdersByEmail(string email)
         {
@@ -101,11 +101,41 @@ namespace VTInformatica.Controllers
             try
             {
                 var success = await _orderService.SoftDeleteAsync(id);
-                return success ? NoContent() : NotFound();
+                if (success)
+                {
+                    return Ok(new { message = "Order correctly deleted." });
+                }
+                else
+                {
+                    return NotFound(new { message = "Order not found or already deleted" });
+                }
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "An error occurred while soft-deleting the order.");
+                return StatusCode(500, "Internal server error.");
+            }
+        }
+
+        [HttpPut("{id}/restore")]
+        [Authorize]
+        public async Task<IActionResult> RestoreOrder(int id)
+        {
+            try
+            {
+                var success = await _orderService.RestoreAsync(id);
+                if (success)
+                {
+                    return Ok(new { message = "Order correctly restored." });
+                }
+                else
+                {
+                    return NotFound(new { message = "Order not found or already active" });
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "An error occurred while restoring the order.");
                 return StatusCode(500, "Internal server error.");
             }
         }

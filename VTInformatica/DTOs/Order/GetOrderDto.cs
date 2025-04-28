@@ -7,6 +7,7 @@
         public string CustomerEmail { get; set; }
         public DateTime CreatedAt { get; set; }
         public string? CustomerComment { get; set; }
+        public bool IsDeleted { get; set; }
         public List<GetOrderItemsDto> Items { get; set; }
     }
 }

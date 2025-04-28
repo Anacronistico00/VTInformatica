@@ -51,7 +51,6 @@ namespace VTInformatica.Controllers
                     existingUser.FirstName = registerRequestDto.FirstName;
                     existingUser.LastName = registerRequestDto.LastName;
                     existingUser.BirthDate = registerRequestDto.BirthDate;
-                    existingUser.IsActive = true;
 
                     var updateResult = await _userManager.UpdateAsync(existingUser);
                     if (!updateResult.Succeeded)
@@ -128,6 +127,8 @@ namespace VTInformatica.Controllers
 
             claims.Add(new Claim(ClaimTypes.Email, user.Email));
             claims.Add(new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"));
+            claims.Add(new Claim(ClaimTypes.DateOfBirth, user.BirthDate.ToString("yyyy-MM-dd")));
+
             foreach (var role in roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));

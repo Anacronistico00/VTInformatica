@@ -25,6 +25,7 @@ namespace VTInformatica.Services
             var orders = await _context.Orders
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
+                .ThenInclude(p => p.ProductImages)
                 .ToListAsync();
 
             return orders.Select(o => new GetOrderDto
@@ -34,9 +35,19 @@ namespace VTInformatica.Services
                 CustomerEmail = o.CustomerEmail,
                 CreatedAt = o.CreatedAt,
                 CustomerComment = o.CustomerComment,
+                IsDeleted = o.IsDeleted,
                 Items = o.OrderItems.Select(oi => new GetOrderItemsDto
                 {
-                    Quantity = oi.Quantity
+                    Quantity = oi.Quantity,
+                    Product = new GetOrderProductDto()
+                    {
+                        Name = oi.Product.Name,
+                        Price = oi.Product.Price,
+                        ProductImages = oi.Product.ProductImages.Select(pi => new ProductImageDto
+                        {
+                            ImageUrl = pi.ImageUrl,
+                        }).ToList(),
+                    }
                 }).ToList()
             }).ToList();
         }
@@ -46,7 +57,8 @@ namespace VTInformatica.Services
             var order = await _context.Orders
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
-                .FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
+                .ThenInclude(p => p.ProductImages)
+                .FirstOrDefaultAsync(o => o.Id == id);
 
             if (order == null) return null;
 
@@ -57,17 +69,28 @@ namespace VTInformatica.Services
                 CustomerEmail = order.CustomerEmail,
                 CreatedAt = order.CreatedAt,
                 CustomerComment = order.CustomerComment,
+                IsDeleted = order.IsDeleted,
                 Items = order.OrderItems.Select(oi => new GetOrderItemsDto
                 {
-                    Quantity = oi.Quantity
+                    Quantity = oi.Quantity,
+                    Product = new GetOrderProductDto
+                    {
+                        Name = oi.Product.Name,
+                        Price = oi.Product.Price,
+                        ProductImages = oi.Product.ProductImages.Select(pi => new ProductImageDto
+                        {
+                            ImageUrl = pi.ImageUrl
+                        }).ToList()
+                    }
                 }).ToList()
             };
+
         }
 
         public async Task<List<GetOrderDto>> GetOrdersByEmailAsync(string email)
         {
             var orders = await _context.Orders
-                .Where(o => o.CustomerEmail == email && !o.IsDeleted)
+                .Where(o => o.CustomerEmail == email)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Manufacturer)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Category)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.SubCategory)
@@ -82,6 +105,7 @@ namespace VTInformatica.Services
                 CustomerEmail = o.CustomerEmail,
                 CreatedAt = o.CreatedAt,
                 CustomerComment = o.CustomerComment,
+                IsDeleted = o.IsDeleted,
                 Items = o.OrderItems.Select(oi => new GetOrderItemsDto
                 {
                     Quantity = oi.Quantity,
@@ -175,6 +199,43 @@ namespace VTInformatica.Services
 
             return true;
         }
+
+        public async Task<bool> RestoreAsync(int orderId)
+        {
+            var order = await _context.Orders
+                .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+                .FirstOrDefaultAsync(o => o.Id == orderId && o.IsDeleted);
+
+            if (order == null)
+            {
+                return false;
+            }
+
+            order.IsDeleted = false;
+            _context.Orders.Update(order);
+
+            foreach (var orderItem in order.OrderItems)
+            {
+                var product = orderItem.Product;
+                if (product != null)
+                {
+                    if (product.Quantity >= orderItem.Quantity)
+                    {
+                        product.Quantity -= orderItem.Quantity;
+                        _context.Products.Update(product);
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
 
     }
 }

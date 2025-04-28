@@ -21,11 +21,15 @@ namespace VTInformatica.Services
 
             foreach (var user in users)
             {
+                var roles = await _userManager.GetRolesAsync(user);
+                var role = roles.FirstOrDefault();
+
                 result.Add(new GetUserDto
                 {
                     Email = user.Email,
                     FullName = $"{user.FirstName} {user.LastName}",
                     BirthDate = user.BirthDate,
+                    Role = role,
                     IsActive = user.IsActive
                 });
             }

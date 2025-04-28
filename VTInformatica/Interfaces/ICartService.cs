@@ -5,8 +5,8 @@ namespace VTInformatica.Interfaces
 {
     public interface ICartService
     {
-        Task<CartDto?> GetCartByEmailAsync(string email);
-        Task<CartDto> AddItemAsync(string Email, CartItemDto itemDto);
+        Task<GetCartDto?> GetCartByEmailAsync(string email);
+        Task<GetCartDto> AddItemAsync(string Email, CartItemDto itemDto);
         Task<bool> RemoveItemAsync(int cartItemId);
         Task<bool> RemoveItemQuantityAsync(int cartItemId, int quantityToRemove);
         Task<bool> ClearCartAsync(string userId);

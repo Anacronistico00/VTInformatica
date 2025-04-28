@@ -1,9 +1,9 @@
 ﻿namespace VTInformatica.DTOs.Cart
 {
-    public class CartDto
+    public class GetCartDto
     {
         public string? Email { get; set; }
-        public ICollection<CartItemDto> Items { get; set; }
+        public ICollection<GetCartItemDto> Items { get; set; }
         public decimal? TotalPrice { get; set; }
     }
 }

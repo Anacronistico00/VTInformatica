@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using VTInformatica.Data;
 using VTInformatica.DTOs.Cart;
+using VTInformatica.DTOs.Product;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 using VTInformatica.Models.Auth;
@@ -20,32 +21,56 @@ namespace VTInformatica.Services
             _userManager = userManager;
         }
 
-        public async Task<CartDto?> GetCartByEmailAsync(string email)
+        public async Task<GetCartDto?> GetCartByEmailAsync(string email)
         {
             var cart = await _context.Carts
                 .Include(c => c.Items)
                 .ThenInclude(i => i.Product)
+                    .ThenInclude(p => p.ProductImages)
                 .FirstOrDefaultAsync(c => c.Email == email);
 
-            if (cart == null) return null;
+            var loggedInUser = await _userManager.FindByEmailAsync(email);
 
-            var totalPrice = cart.Items.Sum(i => i.Quantity * i.Product.Price);
-
-            return new CartDto
+            if (loggedInUser == null)
             {
-                Id = cart.Id,
+                throw new InvalidOperationException("User not found.");
+            }
+
+            var userId = loggedInUser.Id;
+
+            if (cart == null)
+            {
+                cart = new Cart { Email = email, Items = new List<CartItem>(), UserId = userId };
+                _context.Carts.Add(cart);
+            }
+
+            var totalPrice = cart.Items
+                .Where(i => i.Product != null)
+                .Sum(i => i.Quantity * i.Product.Price);
+
+            return new GetCartDto
+            {
                 Email = cart.Email,
-                Items = cart.Items.Select(i => new CartItemDto
+                TotalPrice = totalPrice,
+                Items = cart.Items.Select(i => new GetCartItemDto
                 {
                     Id = i.Id,
-                    ProductId = i.ProductId,
-                    Quantity = i.Quantity
-                }).ToList(),
-                TotalPrice = totalPrice,
+                    Quantity = i.Quantity,
+                    Product = new GetCartProductDto
+                    {
+                        Name = i.Product.Name,
+                        Price = i.Product.Price,
+                        ProductImages = i.Product.ProductImages?.Select(img => new ProductImageDto
+                        {
+                            ImageUrl = img.ImageUrl
+                        }).ToList()
+                    }
+                }).ToList()
             };
         }
 
-        public async Task<CartDto> AddItemAsync(string email, CartItemDto itemDto)
+
+        public async Task<GetCartDto> AddItemAsync(string email, CartItemDto itemDto)
         {
             var loggedInUser = await _userManager.FindByEmailAsync(email);
 
