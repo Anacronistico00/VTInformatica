@@ -76,7 +76,7 @@ namespace VTInformatica.Data
             modelBuilder.Entity<Product>().HasOne(p => p.SubCategory).WithMany(s => s.Products).HasForeignKey(p => p.SubCategoryId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<SubCategory>().HasOne(s => s.Category).WithMany(c => c.SubCategories).HasForeignKey(s => s.CategoryId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<ProductImage>().HasOne(pi => pi.Product).WithMany(p => p.ProductImages).HasForeignKey(pi => pi.ProductId);
-            modelBuilder.Entity<Manufacturer>().HasMany(m => m.Products).WithOne(p => p.Manufacturer).HasForeignKey(p => p.ManufacturerId);
+            modelBuilder.Entity<Manufacturer>().HasMany(m => m.Products).WithOne(p => p.Manufacturer).HasForeignKey(p => p.ManufacturerId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<Review>().HasOne(r => r.Product).WithMany(p => p.Reviews).HasForeignKey(r => r.ProductId).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<Review>().HasOne(r => r.User).WithMany(p => p.Reviews).HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
 

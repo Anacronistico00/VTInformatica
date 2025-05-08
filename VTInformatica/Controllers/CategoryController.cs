@@ -75,7 +75,7 @@ namespace VTInformatica.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] CategoryDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] EditCategoryDto dto)
         {
             try
             {

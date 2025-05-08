@@ -53,7 +53,7 @@ namespace VTInformatica.Services
             return dto;
         }
 
-        public async Task<bool> UpdateAsync(int id, CategoryDto dto)
+        public async Task<bool> UpdateAsync(int id, EditCategoryDto dto)
         {
             var category = await _context.Categories.FindAsync(id);
             if (category == null) return false;
