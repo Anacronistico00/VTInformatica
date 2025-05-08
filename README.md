@@ -3,7 +3,7 @@
 **VT Informatica BE** è il back-end ufficiale del progetto VT Informatica, una piattaforma di e-shop moderna e reattiva progettata per offrire un'esperienza utente fluida e intuitiva.
 
 ## Qui il link per il FrontEnd
-- [Link alla repo del FrontEnd](https://github.com/Anacronistico00/vtinformatica-fe)
+- [Link alla repo del FrontEnd](https://github.com/Anacronistico00/vtinformatica_fe)
   
 ## 🚀 Tecnologie Utilizzate
 
