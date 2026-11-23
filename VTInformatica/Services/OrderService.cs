@@ -94,6 +94,10 @@ namespace VTInformatica.Services
                 throw new InvalidOperationException("Il carrello è vuoto.");
             }
 
+            // AUDIT #7: ordine, stock e svuotamento carrello sono tutto o niente.
+            // Se un'eccezione esce prima del Commit, il dispose fa rollback.
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             var order = new Order
             {
                 CustomerId = cart.UserId,
@@ -128,6 +132,8 @@ namespace VTInformatica.Services
 
             _context.CartItems.RemoveRange(cart.Items);
             await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
 
             return await GetByIdAsync(order.Id);
         }
