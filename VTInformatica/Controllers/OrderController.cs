@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using VTInformatica.DTOs.Order;
+using VTInformatica.Extensions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 using VTInformatica.Services;
@@ -19,6 +20,13 @@ namespace VTInformatica.Controllers
         public OrderController(IOrderService orderService)
         {
             _orderService = orderService;
+        }
+
+        // Proprietario dell'ordine oppure Admin/Seller (identità dai claim del JWT).
+        private async Task<bool> CanManageOrderAsync(int orderId)
+        {
+            var order = await _orderService.GetByIdAsync(orderId);
+            return order != null && (User.IsStaff() || User.HasEmail(order.CustomerEmail));
         }
 
         [HttpGet]
@@ -63,6 +71,9 @@ namespace VTInformatica.Controllers
         [Authorize]
         public async Task<IActionResult> GetOrdersByEmail(string email)
         {
+            if (!User.HasEmail(email) && !User.IsStaff())
+                return Forbid();
+
             try
             {
                 var orders = await _orderService.GetOrdersByEmailAsync(email);
@@ -82,6 +93,10 @@ namespace VTInformatica.Controllers
         [Authorize]
         public async Task<IActionResult> CreateOrderFromCart(string userEmail)
         {
+            // Nessuna eccezione per Admin/Seller: si ordina solo dal proprio carrello.
+            if (!User.HasEmail(userEmail))
+                return Forbid();
+
             try
             {
                 var order = await _orderService.CreateOrderFromCartAsync(userEmail);
@@ -100,6 +115,10 @@ namespace VTInformatica.Controllers
         {
             try
             {
+                // 404 anche se l'ordine esiste ma non è dell'utente: non ne riveliamo l'esistenza.
+                if (!await CanManageOrderAsync(id))
+                    return NotFound(new { message = "Order not found or already deleted" });
+
                 var success = await _orderService.SoftDeleteAsync(id);
                 if (success)
                 {
@@ -123,6 +142,9 @@ namespace VTInformatica.Controllers
         {
             try
             {
+                if (!await CanManageOrderAsync(id))
+                    return NotFound(new { message = "Order not found or already active" });
+
                 var success = await _orderService.RestoreAsync(id);
                 if (success)
                 {

@@ -92,7 +92,7 @@ namespace VTInformatica.Controllers
                 return BadRequest(new { message = "User registration failed.", errors = result.Errors.Select(e => e.Description) });
             }
 
-            await _userManager.AddToRoleAsync(newUser, "Admin");
+            await _userManager.AddToRoleAsync(newUser, "Customer");
 
             return Ok(new { message = "Registrazione effettuata con successo!" });
         }
@@ -125,6 +125,7 @@ namespace VTInformatica.Controllers
 
             List<Claim> claims = new List<Claim>();
 
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id));
             claims.Add(new Claim(ClaimTypes.Email, user.Email));
             claims.Add(new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"));
             claims.Add(new Claim(ClaimTypes.DateOfBirth, user.BirthDate.ToString("yyyy-MM-dd")));
@@ -162,8 +163,13 @@ namespace VTInformatica.Controllers
         }
 
         [HttpPut("UpdateUser/{id}")]
+        [Authorize]
         public async Task<IActionResult> UpdateUser([FromBody] UpdateUserDto dto, string id)
         {
+            // Solo il proprio profilo (id dal token), salvo Admin.
+            if (id != User.FindFirstValue(ClaimTypes.NameIdentifier) && !User.IsInRole("Admin"))
+                return Forbid();
+
             var success = await _accountService.UpdateUserAsync(id, dto);
             if (!success)
                 return NotFound(new { message = "Utente non trovato o errore nell'aggiornamento." });

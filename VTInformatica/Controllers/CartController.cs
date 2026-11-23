@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using System.Security.Claims;
 using VTInformatica.DTOs.Cart;
+using VTInformatica.Extensions;
 using VTInformatica.Interfaces;
 
 namespace VTInformatica.Controllers
@@ -20,9 +21,23 @@ namespace VTInformatica.Controllers
             _cartService = cartService;
         }
 
+        // L'item deve appartenere al carrello dell'utente autenticato (identità dai claim del JWT).
+        private async Task<bool> ItemBelongsToCurrentUserAsync(int cartItemId)
+        {
+            var currentEmail = User.GetEmail();
+            if (currentEmail == null)
+                return false;
+
+            var cart = await _cartService.GetCartByEmailAsync(currentEmail);
+            return cart != null && cart.Items.Any(i => i.Id == cartItemId);
+        }
+
         [HttpGet("{email}")]
         public async Task<IActionResult> GetCart(string email)
         {
+            if (!User.HasEmail(email))
+                return Forbid();
+
             try
             {
                 var cart = await _cartService.GetCartByEmailAsync(email);
@@ -42,6 +57,9 @@ namespace VTInformatica.Controllers
         [HttpPost("{email}/add")]
         public async Task<IActionResult> AddItem(string email, [FromBody] CartItemDto dto)
         {
+            if (!User.HasEmail(email))
+                return Forbid();
+
             try
             {
                 var userId = User.FindFirst(ClaimTypes.Email)?.Value;
@@ -65,6 +83,10 @@ namespace VTInformatica.Controllers
         {
             try
             {
+                // 404 anche se l'item esiste ma è di un altro utente: non ne riveliamo l'esistenza.
+                if (!await ItemBelongsToCurrentUserAsync(itemId))
+                    return NotFound();
+
                 var success = await _cartService.RemoveItemAsync(itemId);
                 return success ? NoContent() : NotFound();
             }
@@ -83,6 +105,9 @@ namespace VTInformatica.Controllers
                 return BadRequest(new { message = "La quantità da rimuovere deve essere maggiore di zero." });
             }
 
+            if (!await ItemBelongsToCurrentUserAsync(cartItemId))
+                return NotFound(new { message = "Articolo non trovato o quantità da rimuovere non valida." });
+
             var success = await _cartService.RemoveItemQuantityAsync(cartItemId, quantityToRemove);
 
             if (success)
@@ -98,6 +123,9 @@ namespace VTInformatica.Controllers
         [HttpDelete("{email}/clear")]
         public async Task<IActionResult> ClearCart(string email)
         {
+            if (!User.HasEmail(email))
+                return Forbid();
+
             try
             {
                 var success = await _cartService.ClearCartAsync(email);
