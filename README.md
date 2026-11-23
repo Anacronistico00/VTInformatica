@@ -36,6 +36,8 @@ Jwt__SecurityKey=<chiave di almeno 32 caratteri>
 
 `Jwt:Issuer`, `Jwt:Audience` e `Jwt:ExpiresInMinutes` restano in `appsettings.json`.
 
+> Dopo il deploy di questa versione gli utenti devono **rifare il login**: i token emessi in precedenza non contengono il claim `NameIdentifier` (id utente), necessario per modificare il profilo e per modificare o cancellare le proprie recensioni.
+
 ### CORS
 
 Le origini ammesse sono in `Cors:AllowedOrigins` (`appsettings.json`, di default `http://localhost:5173` per il FrontEnd in sviluppo). In produzione si possono impostare con variabili d'ambiente, ad esempio:
