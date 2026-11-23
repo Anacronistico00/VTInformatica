@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using System.Security.Claims;
 using VTInformatica.DTOs.Cart;
+using VTInformatica.Exceptions;
 using VTInformatica.Extensions;
 using VTInformatica.Interfaces;
 
@@ -70,6 +71,16 @@ namespace VTInformatica.Controllers
 
                 var updatedCart = await _cartService.AddItemAsync(email, dto);
                 return Ok(new { Message = "Item Added succesfully!"});
+            }
+            catch (ProductNotFoundException ex)
+            {
+                Log.Warning("Add to cart rejected: product {ProductId} not found", ex.ProductId);
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InsufficientStockException ex)
+            {
+                Log.Warning("Add to cart rejected: insufficient stock for product {ProductId}", ex.ProductId);
+                return Conflict(new { message = ex.Message });
             }
             catch (Exception ex)
             {

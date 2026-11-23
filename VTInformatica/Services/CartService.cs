@@ -4,6 +4,7 @@ using System.Security.Claims;
 using VTInformatica.Data;
 using VTInformatica.DTOs.Cart;
 using VTInformatica.DTOs.Product;
+using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 using VTInformatica.Models.Auth;
@@ -92,6 +93,21 @@ namespace VTInformatica.Services
             }
 
             var existingItem = cart.Items.FirstOrDefault(i => i.ProductId == itemDto.ProductId);
+
+            // AUDIT #8: prodotto esistente e quantità totale nel carrello entro lo stock.
+            // Controllo indicativo: la garanzia vera sullo stock è al checkout.
+            var product = await _context.Products.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == itemDto.ProductId);
+            if (product == null)
+            {
+                throw new ProductNotFoundException(itemDto.ProductId);
+            }
+
+            long requestedTotal = (long)(existingItem?.Quantity ?? 0) + itemDto.Quantity;
+            if (requestedTotal > product.Quantity)
+            {
+                throw new InsufficientStockException(itemDto.ProductId);
+            }
 
             if (existingItem != null)
             {
