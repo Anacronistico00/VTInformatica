@@ -69,31 +69,78 @@ public class OrderTests
     }
 
     [Fact]
-    public async Task GetOrdersByEmail_OtherUsersEmail_Returns200WithTheirOrders()
+    public async Task GetOrdersByEmail_OwnEmail_Returns200WithOwnOrders()
     {
-        // AUDIT #2 (IDOR): l'email arriva dalla route e non dai claim del JWT.
-        // Qualunque utente autenticato legge gli ordini di un altro.
-        // Comportamento SBAGLIATO documentato: in M1 questo test deve diventare 403/404.
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
-        var (emailA, _, orderA) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 1);
+        var (emailA, tokenA, orderA) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 1);
+        var clientA = TestHelpers.AuthorizedClient(_factory, tokenA);
+
+        var response = await clientA.GetAsync($"/Order/user/{emailA}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var orders = await response.Content.ReadFromJsonAsync<List<GetOrderDto>>();
+        var own = Assert.Single(orders!);
+        Assert.Equal(orderA.OrderNumber, own.OrderNumber);
+    }
+
+    [Fact]
+    public async Task GetOrdersByEmail_OtherUsersEmail_Returns403()
+    {
+        // AUDIT #2 risolto in M1b: l'email della route deve coincidere con quella del JWT.
+        var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
+        var (emailA, _, _) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 1);
         var tokenB = await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail());
         var clientB = TestHelpers.AuthorizedClient(_factory, tokenB);
 
         var response = await clientB.GetAsync($"/Order/user/{emailA}");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var orders = await response.Content.ReadFromJsonAsync<List<GetOrderDto>>();
-        var leaked = Assert.Single(orders!);
-        Assert.Equal(emailA, leaked.CustomerEmail);
-        Assert.Equal(orderA.OrderNumber, leaked.OrderNumber);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
-    public async Task SoftDelete_OtherUsersOrder_Returns200()
+    public async Task GetOrdersByEmail_AsAdmin_OtherUsersEmail_Returns200()
     {
-        // AUDIT #3: nessun controllo di proprietà su PUT /Order/{id}/delete.
-        // Qualunque utente autenticato cancella l'ordine di un altro (e lo stock torna a magazzino).
-        // Comportamento SBAGLIATO documentato: in M1 questo test deve diventare 403/404.
+        // Admin e Seller possono leggere gli ordini di qualunque utente.
+        var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
+        var (emailA, _, orderA) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 1);
+        var adminToken = await TestHelpers.RegisterAndLoginAsAdminAsync(_factory, TestHelpers.UniqueEmail());
+        var adminClient = TestHelpers.AuthorizedClient(_factory, adminToken);
+
+        var response = await adminClient.GetAsync($"/Order/user/{emailA}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var orders = await response.Content.ReadFromJsonAsync<List<GetOrderDto>>();
+        Assert.Equal(orderA.OrderNumber, Assert.Single(orders!).OrderNumber);
+    }
+
+    [Fact]
+    public async Task CreateFromCart_OtherUsersCart_Returns403()
+    {
+        // AUDIT #2 risolto in M1b: non si può creare un ordine dal carrello di un altro utente.
+        var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
+        var emailA = TestHelpers.UniqueEmail();
+        var clientA = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, emailA));
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(clientA, emailA, productId, quantity: 2)).StatusCode);
+        var tokenB = await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail());
+        var clientB = TestHelpers.AuthorizedClient(_factory, tokenB);
+
+        var response = await clientB.PostAsync($"/Order/from-cart/{emailA}", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(10, await TestHelpers.GetProductStockAsync(_factory, productId));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await db.Orders.AnyAsync(o => o.CustomerEmail == emailA));
+        var cartA = await db.Carts.AsNoTracking().Include(c => c.Items).SingleAsync(c => c.Email == emailA);
+        Assert.Single(cartA.Items);
+    }
+
+    [Fact]
+    public async Task SoftDelete_OtherUsersOrder_Returns404()
+    {
+        // AUDIT #3 risolto in M1b: solo il proprietario (o Admin/Seller) può annullare l'ordine.
+        // 404 e non 403, per non rivelare l'esistenza dell'ordine.
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var (_, _, orderA) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 2);
         var tokenB = await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail());
@@ -101,7 +148,40 @@ public class OrderTests
 
         var response = await clientB.PutAsync($"/Order/{orderA.Id}/delete", null);
 
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.False(await IsOrderDeletedAsync(orderA.Id));
+        Assert.Equal(8, await TestHelpers.GetProductStockAsync(_factory, productId));
+    }
+
+    [Fact]
+    public async Task Restore_OwnDeletedOrder_Returns200()
+    {
+        var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
+        var (_, tokenA, orderA) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 2);
+        var clientA = TestHelpers.AuthorizedClient(_factory, tokenA);
+        Assert.Equal(HttpStatusCode.OK, (await clientA.PutAsync($"/Order/{orderA.Id}/delete", null)).StatusCode);
+
+        var response = await clientA.PutAsync($"/Order/{orderA.Id}/restore", null);
+
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(await IsOrderDeletedAsync(orderA.Id));
+        Assert.Equal(8, await TestHelpers.GetProductStockAsync(_factory, productId));
+    }
+
+    [Fact]
+    public async Task Restore_OtherUsersOrder_Returns404()
+    {
+        // AUDIT #3 risolto in M1b: stesso controllo di proprietà del delete, stessa risposta 404.
+        var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
+        var (_, tokenA, orderA) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 2);
+        var clientA = TestHelpers.AuthorizedClient(_factory, tokenA);
+        Assert.Equal(HttpStatusCode.OK, (await clientA.PutAsync($"/Order/{orderA.Id}/delete", null)).StatusCode);
+        var tokenB = await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail());
+        var clientB = TestHelpers.AuthorizedClient(_factory, tokenB);
+
+        var response = await clientB.PutAsync($"/Order/{orderA.Id}/restore", null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.True(await IsOrderDeletedAsync(orderA.Id));
         Assert.Equal(10, await TestHelpers.GetProductStockAsync(_factory, productId));
     }

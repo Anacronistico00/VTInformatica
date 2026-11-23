@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using System.Security.Claims;
 using VTInformatica.DTOs.Review;
+using VTInformatica.Extensions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 using VTInformatica.Services;
@@ -70,6 +71,17 @@ namespace VTInformatica.Controllers
         [Authorize]
         public async Task<IActionResult> Create([FromBody] CreateReviewDto dto)
         {
+            // Identità sempre dal JWT: UserId/Email del body vengono sovrascritti.
+            var loggedUserId = User.GetUserId();
+            var loggedEmail = User.GetEmail();
+            if (string.IsNullOrEmpty(loggedUserId) || string.IsNullOrEmpty(loggedEmail))
+            {
+                return Unauthorized(new { message = "User not logged in." });
+            }
+
+            dto.UserId = loggedUserId;
+            dto.Email = loggedEmail;
+
             try
             {
                 var created = await _service.CreateAsync(dto);
@@ -88,14 +100,18 @@ namespace VTInformatica.Controllers
         {
             try
             {
-                var loggedUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var loggedUserId = User.GetUserId();
+                if (string.IsNullOrEmpty(loggedUserId))
+                {
+                    return Unauthorized(new { message = "User not logged in." });
+                }
 
                 var success = await _service.UpdateAsync(id, dto, loggedUserId);
                 return success ? NoContent() : NotFound();
             }
             catch (UnauthorizedAccessException ex)
             {
-                Log.Error(ex, "Unauthorized update attempt");
+                Log.Warning(ex, "Unauthorized update attempt");
                 return Forbid();
             }
             catch (Exception ex)
@@ -111,7 +127,7 @@ namespace VTInformatica.Controllers
         {
             try
             {
-                var loggedUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var loggedUserId = User.GetUserId();
                 if (string.IsNullOrEmpty(loggedUserId))
                 {
                     return Unauthorized(new { message = "User not logged in." });
@@ -122,8 +138,9 @@ namespace VTInformatica.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                Log.Error(ex, "Unauthorized delete attempt");
-                return Forbid();
+                // 404 e non 403: non riveliamo l'esistenza della review di un altro utente.
+                Log.Warning(ex, "Unauthorized delete attempt");
+                return NotFound(new { message = "Review not found." });
             }
             catch (Exception ex)
             {

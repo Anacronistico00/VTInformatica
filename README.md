@@ -14,6 +14,38 @@
 - **Serilog**: Per il logging avanzato e la gestione dei log.
 - **AutoMapper**: Per la mappatura degli oggetti e la gestione delle conversioni tra DTO e entità.
 
+## ⚙️ Configurazione
+
+### Chiave JWT
+
+La chiave di firma dei token **non è nel repository**. All'avvio l'API verifica che `Jwt:SecurityKey` sia presente e lunga almeno 32 caratteri; altrimenti non parte.
+
+**Sviluppo** (User Secrets, salvati fuori dal repository):
+
+```bash
+dotnet user-secrets set "Jwt:SecurityKey" "<chiave di almeno 32 caratteri>" --project VTInformatica
+```
+
+**Produzione** (variabile d'ambiente; `__` sostituisce `:`):
+
+```bash
+Jwt__SecurityKey=<chiave di almeno 32 caratteri>
+```
+
+> La chiave usata in passato è presente nella storia git di questo repository pubblico: va considerata compromessa e **non deve essere riutilizzata**.
+
+`Jwt:Issuer`, `Jwt:Audience` e `Jwt:ExpiresInMinutes` restano in `appsettings.json`.
+
+> Dopo il deploy di questa versione gli utenti devono **rifare il login**: i token emessi in precedenza non contengono il claim `NameIdentifier` (id utente), necessario per modificare il profilo e per modificare o cancellare le proprie recensioni.
+
+### CORS
+
+Le origini ammesse sono in `Cors:AllowedOrigins` (`appsettings.json`, di default `http://localhost:5173` per il FrontEnd in sviluppo). In produzione si possono impostare con variabili d'ambiente, ad esempio:
+
+```bash
+Cors__AllowedOrigins__0=https://<dominio-del-frontend>
+```
+
 ## 📬 Contatti
 
 - 📧 Email: viktoryturiaci2323@gmail.com
