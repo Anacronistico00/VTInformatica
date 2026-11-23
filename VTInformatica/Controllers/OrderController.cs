@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
-using System.Security.Claims;
 using VTInformatica.DTOs.Order;
+using VTInformatica.Extensions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 using VTInformatica.Services;
@@ -22,19 +22,11 @@ namespace VTInformatica.Controllers
             _orderService = orderService;
         }
 
-        // Identità sempre dai claim del JWT, mai dalla route.
-        private string? CurrentEmail => User.FindFirstValue(ClaimTypes.Email);
-
-        private bool IsStaff => User.IsInRole("Admin") || User.IsInRole("Seller");
-
-        private bool IsCurrentUser(string? email) =>
-            CurrentEmail != null && string.Equals(email, CurrentEmail, StringComparison.OrdinalIgnoreCase);
-
-        // Proprietario dell'ordine oppure Admin/Seller.
+        // Proprietario dell'ordine oppure Admin/Seller (identità dai claim del JWT).
         private async Task<bool> CanManageOrderAsync(int orderId)
         {
             var order = await _orderService.GetByIdAsync(orderId);
-            return order != null && (IsStaff || IsCurrentUser(order.CustomerEmail));
+            return order != null && (User.IsStaff() || User.HasEmail(order.CustomerEmail));
         }
 
         [HttpGet]
@@ -79,7 +71,7 @@ namespace VTInformatica.Controllers
         [Authorize]
         public async Task<IActionResult> GetOrdersByEmail(string email)
         {
-            if (!IsCurrentUser(email) && !IsStaff)
+            if (!User.HasEmail(email) && !User.IsStaff())
                 return Forbid();
 
             try
@@ -102,7 +94,7 @@ namespace VTInformatica.Controllers
         public async Task<IActionResult> CreateOrderFromCart(string userEmail)
         {
             // Nessuna eccezione per Admin/Seller: si ordina solo dal proprio carrello.
-            if (!IsCurrentUser(userEmail))
+            if (!User.HasEmail(userEmail))
                 return Forbid();
 
             try
