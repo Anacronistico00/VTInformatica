@@ -28,28 +28,7 @@ namespace VTInformatica.Services
                 .ThenInclude(p => p.ProductImages)
                 .ToListAsync();
 
-            return orders.Select(o => new GetOrderDto
-            {
-                Id = o.Id,
-                OrderNumber = o.OrderNumber,
-                CustomerEmail = o.CustomerEmail,
-                CreatedAt = o.CreatedAt,
-                CustomerComment = o.CustomerComment,
-                IsDeleted = o.IsDeleted,
-                Items = o.OrderItems.Select(oi => new GetOrderItemsDto
-                {
-                    Quantity = oi.Quantity,
-                    Product = new GetOrderProductDto()
-                    {
-                        Name = oi.Product.Name,
-                        Price = oi.Product.Price,
-                        ProductImages = oi.Product.ProductImages.Select(pi => new ProductImageDto
-                        {
-                            ImageUrl = pi.ImageUrl,
-                        }).ToList(),
-                    }
-                }).ToList()
-            }).ToList();
+            return orders.Select(ToDto).ToList();
         }
 
         public async Task<GetOrderDto?> GetByIdAsync(int id)
@@ -62,29 +41,7 @@ namespace VTInformatica.Services
 
             if (order == null) return null;
 
-            return new GetOrderDto
-            {
-                Id = order.Id,
-                OrderNumber = order.OrderNumber,
-                CustomerEmail = order.CustomerEmail,
-                CreatedAt = order.CreatedAt,
-                CustomerComment = order.CustomerComment,
-                IsDeleted = order.IsDeleted,
-                Items = order.OrderItems.Select(oi => new GetOrderItemsDto
-                {
-                    Quantity = oi.Quantity,
-                    Product = new GetOrderProductDto
-                    {
-                        Name = oi.Product.Name,
-                        Price = oi.Product.Price,
-                        ProductImages = oi.Product.ProductImages.Select(pi => new ProductImageDto
-                        {
-                            ImageUrl = pi.ImageUrl
-                        }).ToList()
-                    }
-                }).ToList()
-            };
-
+            return ToDto(order);
         }
 
         public async Task<List<GetOrderDto>> GetOrdersByEmailAsync(string email)
@@ -98,31 +55,34 @@ namespace VTInformatica.Services
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Reviews)
                 .ToListAsync();
 
-            return orders.Select(o => new GetOrderDto
-            {
-                Id = o.Id,
-                OrderNumber = o.OrderNumber,
-                CustomerEmail = o.CustomerEmail,
-                CreatedAt = o.CreatedAt,
-                CustomerComment = o.CustomerComment,
-                IsDeleted = o.IsDeleted,
-                Items = o.OrderItems.Select(oi => new GetOrderItemsDto
-                {
-                    Quantity = oi.Quantity,
-                    Product = new GetOrderProductDto
-                    {
-                        Name = oi.Product.Name,
-                        Price = oi.Product.Price,
-                        ProductImages = oi.Product.ProductImages != null
-                            ? oi.Product.ProductImages.Select(img => new ProductImageDto
-                            {
-                                ImageUrl = img.ImageUrl
-                            }).ToList()
-                            : new List<ProductImageDto>()
-                    }
-                }).ToList()
-            }).ToList();
+            return orders.Select(ToDto).ToList();
         }
+
+        // Unico punto di mapping Order -> GetOrderDto (prima duplicato in tre metodi).
+        private static GetOrderDto ToDto(Order order) => new GetOrderDto
+        {
+            Id = order.Id,
+            OrderNumber = order.OrderNumber,
+            CustomerEmail = order.CustomerEmail,
+            CreatedAt = order.CreatedAt,
+            CustomerComment = order.CustomerComment,
+            IsDeleted = order.IsDeleted,
+            Items = order.OrderItems.Select(oi => new GetOrderItemsDto
+            {
+                Quantity = oi.Quantity,
+                Product = new GetOrderProductDto
+                {
+                    Name = oi.Product.Name,
+                    Price = oi.Product.Price,
+                    ProductImages = oi.Product.ProductImages != null
+                        ? oi.Product.ProductImages.Select(img => new ProductImageDto
+                        {
+                            ImageUrl = img.ImageUrl
+                        }).ToList()
+                        : new List<ProductImageDto>()
+                }
+            }).ToList()
+        };
 
         public async Task<GetOrderDto> CreateOrderFromCartAsync(string userEmail)
         {
