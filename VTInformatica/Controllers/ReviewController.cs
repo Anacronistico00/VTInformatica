@@ -70,6 +70,17 @@ namespace VTInformatica.Controllers
         [Authorize]
         public async Task<IActionResult> Create([FromBody] CreateReviewDto dto)
         {
+            // Identità sempre dal JWT: UserId/Email del body vengono sovrascritti.
+            var loggedUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var loggedEmail = User.FindFirstValue(ClaimTypes.Email);
+            if (string.IsNullOrEmpty(loggedUserId) || string.IsNullOrEmpty(loggedEmail))
+            {
+                return Unauthorized(new { message = "User not logged in." });
+            }
+
+            dto.UserId = loggedUserId;
+            dto.Email = loggedEmail;
+
             try
             {
                 var created = await _service.CreateAsync(dto);
@@ -89,6 +100,10 @@ namespace VTInformatica.Controllers
             try
             {
                 var loggedUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(loggedUserId))
+                {
+                    return Unauthorized(new { message = "User not logged in." });
+                }
 
                 var success = await _service.UpdateAsync(id, dto, loggedUserId);
                 return success ? NoContent() : NotFound();
@@ -122,8 +137,9 @@ namespace VTInformatica.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                // 404 e non 403: non riveliamo l'esistenza della review di un altro utente.
                 Log.Error(ex, "Unauthorized delete attempt");
-                return Forbid();
+                return NotFound(new { message = "Review not found." });
             }
             catch (Exception ex)
             {
