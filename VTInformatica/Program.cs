@@ -160,3 +160,6 @@ finally
 {
     await Log.CloseAndFlushAsync();
 }
+
+// Esposto per WebApplicationFactory<Program> nei test di integrazione.
+public partial class Program { }
