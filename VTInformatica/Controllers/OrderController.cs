@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using VTInformatica.DTOs.Order;
+using VTInformatica.Exceptions;
 using VTInformatica.Extensions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
@@ -101,6 +102,16 @@ namespace VTInformatica.Controllers
             {
                 var order = await _orderService.CreateOrderFromCartAsync(userEmail);
                 return CreatedAtAction(nameof(Get), new { id = order.Id }, order);
+            }
+            catch (ProductNotFoundException ex)
+            {
+                Log.Warning("Order from cart rejected: product {ProductId} not found", ex.ProductId);
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InsufficientStockException ex)
+            {
+                Log.Warning("Order from cart rejected: insufficient stock for product {ProductId}", ex.ProductId);
+                return Conflict(new { message = ex.Message });
             }
             catch (Exception ex)
             {

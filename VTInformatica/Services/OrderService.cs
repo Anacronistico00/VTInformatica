@@ -6,6 +6,7 @@ using VTInformatica.DTOs.Order;
 using VTInformatica.DTOs.Product;
 using VTInformatica.DTOs.Review;
 using VTInformatica.DTOs.SubCategory;
+using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 
@@ -106,24 +107,36 @@ namespace VTInformatica.Services
                 OrderItems = new List<OrderItem>()
             };
 
-            foreach (var item in cart.Items)
-            {
-                var product = await _context.Products.FindAsync(item.ProductId);
+            // Prezzi letti senza tracking: lo stock non passa dal change tracker.
+            var productIds = cart.Items.Select(i => i.ProductId).ToList();
+            var prices = await _context.Products.AsNoTracking()
+                .Where(p => productIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Price);
 
-                if (product == null || product.Quantity < item.Quantity)
+            // AUDIT #7: decremento atomico condizionale (UPDATE ... WHERE Quantity >= qty).
+            // Ordine per ProductId: transazioni concorrenti bloccano le righe nello stesso ordine (niente deadlock).
+            foreach (var item in cart.Items.OrderBy(i => i.ProductId))
+            {
+                if (!prices.TryGetValue(item.ProductId, out var unitPrice))
                 {
-                    throw new InvalidOperationException($"Prodotto {item.ProductId} non disponibile in quantità sufficiente.");
+                    throw new ProductNotFoundException(item.ProductId);
                 }
 
-                product.Quantity -= item.Quantity;
+                var updated = await _context.Products
+                    .Where(p => p.Id == item.ProductId && p.Quantity >= item.Quantity)
+                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Quantity, p => p.Quantity - item.Quantity));
 
-                _context.Products.Update(product);
+                if (updated == 0)
+                {
+                    // Il dispose della transazione annulla anche i decrementi già fatti.
+                    throw new InsufficientStockException(item.ProductId);
+                }
 
                 order.OrderItems.Add(new OrderItem
                 {
                     ProductId = item.ProductId,
                     Quantity = item.Quantity,
-                    UnitPrice = product.Price
+                    UnitPrice = unitPrice
                 });
             }
 
