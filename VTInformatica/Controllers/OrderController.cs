@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
+using System.Security.Claims;
 using VTInformatica.DTOs.Order;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
@@ -19,6 +20,21 @@ namespace VTInformatica.Controllers
         public OrderController(IOrderService orderService)
         {
             _orderService = orderService;
+        }
+
+        // Identità sempre dai claim del JWT, mai dalla route.
+        private string? CurrentEmail => User.FindFirstValue(ClaimTypes.Email);
+
+        private bool IsStaff => User.IsInRole("Admin") || User.IsInRole("Seller");
+
+        private bool IsCurrentUser(string? email) =>
+            CurrentEmail != null && string.Equals(email, CurrentEmail, StringComparison.OrdinalIgnoreCase);
+
+        // Proprietario dell'ordine oppure Admin/Seller.
+        private async Task<bool> CanManageOrderAsync(int orderId)
+        {
+            var order = await _orderService.GetByIdAsync(orderId);
+            return order != null && (IsStaff || IsCurrentUser(order.CustomerEmail));
         }
 
         [HttpGet]
@@ -63,6 +79,9 @@ namespace VTInformatica.Controllers
         [Authorize]
         public async Task<IActionResult> GetOrdersByEmail(string email)
         {
+            if (!IsCurrentUser(email) && !IsStaff)
+                return Forbid();
+
             try
             {
                 var orders = await _orderService.GetOrdersByEmailAsync(email);
@@ -82,6 +101,10 @@ namespace VTInformatica.Controllers
         [Authorize]
         public async Task<IActionResult> CreateOrderFromCart(string userEmail)
         {
+            // Nessuna eccezione per Admin/Seller: si ordina solo dal proprio carrello.
+            if (!IsCurrentUser(userEmail))
+                return Forbid();
+
             try
             {
                 var order = await _orderService.CreateOrderFromCartAsync(userEmail);
@@ -100,6 +123,10 @@ namespace VTInformatica.Controllers
         {
             try
             {
+                // 404 anche se l'ordine esiste ma non è dell'utente: non ne riveliamo l'esistenza.
+                if (!await CanManageOrderAsync(id))
+                    return NotFound(new { message = "Order not found or already deleted" });
+
                 var success = await _orderService.SoftDeleteAsync(id);
                 if (success)
                 {
@@ -123,6 +150,9 @@ namespace VTInformatica.Controllers
         {
             try
             {
+                if (!await CanManageOrderAsync(id))
+                    return NotFound(new { message = "Order not found or already active" });
+
                 var success = await _orderService.RestoreAsync(id);
                 if (success)
                 {
