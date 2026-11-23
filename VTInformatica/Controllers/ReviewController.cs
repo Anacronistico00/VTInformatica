@@ -111,7 +111,7 @@ namespace VTInformatica.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                Log.Error(ex, "Unauthorized update attempt");
+                Log.Warning(ex, "Unauthorized update attempt");
                 return Forbid();
             }
             catch (Exception ex)
@@ -139,7 +139,7 @@ namespace VTInformatica.Controllers
             catch (UnauthorizedAccessException ex)
             {
                 // 404 e non 403: non riveliamo l'esistenza della review di un altro utente.
-                Log.Error(ex, "Unauthorized delete attempt");
+                Log.Warning(ex, "Unauthorized delete attempt");
                 return NotFound(new { message = "Review not found." });
             }
             catch (Exception ex)
