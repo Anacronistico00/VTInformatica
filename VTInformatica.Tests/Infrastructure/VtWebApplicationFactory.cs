@@ -56,8 +56,20 @@ public class VtWebApplicationFactory : WebApplicationFactory<Program>
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
-            services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(_connection));
+            services.AddDbContext<ApplicationDbContext>(options =>
+            {
+                options.UseSqlite(_connection);
+                ConfigureDbContext(options);
+            });
         });
+    }
+
+    /// <summary>
+    /// Punto di estensione per factory derivate (es. interceptor di fault injection).
+    /// La factory condivisa non aggiunge nulla.
+    /// </summary>
+    protected virtual void ConfigureDbContext(DbContextOptionsBuilder options)
+    {
     }
 
     protected override IHost CreateHost(IHostBuilder builder)
