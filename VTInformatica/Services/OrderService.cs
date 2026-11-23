@@ -73,7 +73,7 @@ namespace VTInformatica.Services
                 Product = new GetOrderProductDto
                 {
                     Name = oi.Product.Name,
-                    Price = oi.Product.Price,
+                    Price = oi.UnitPrice,
                     ProductImages = oi.Product.ProductImages != null
                         ? oi.Product.ProductImages.Select(img => new ProductImageDto
                         {
@@ -99,11 +99,7 @@ namespace VTInformatica.Services
                 CustomerId = cart.UserId,
                 CustomerEmail = userEmail,
                 CustomerComment = "Ordine creato dal carrello",
-                OrderItems = cart.Items.Select(item => new OrderItem
-                {
-                    ProductId = item.ProductId,
-                    Quantity = item.Quantity
-                }).ToList()
+                OrderItems = new List<OrderItem>()
             };
 
             foreach (var item in cart.Items)
@@ -118,6 +114,13 @@ namespace VTInformatica.Services
                 product.Quantity -= item.Quantity;
 
                 _context.Products.Update(product);
+
+                order.OrderItems.Add(new OrderItem
+                {
+                    ProductId = item.ProductId,
+                    Quantity = item.Quantity,
+                    UnitPrice = product.Price
+                });
             }
 
             _context.Orders.Add(order);
