@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
 
 namespace VTInformatica.Models
 {
@@ -22,5 +23,9 @@ namespace VTInformatica.Models
 
         [Required]
         public int Quantity { get; set; }
+
+        // Prezzo unitario al momento dell'acquisto (AUDIT #6): non cambia se cambia Product.Price.
+        [Precision(18, 2)]
+        public decimal UnitPrice { get; set; }
     }
 }
