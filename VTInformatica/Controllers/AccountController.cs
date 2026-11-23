@@ -163,8 +163,13 @@ namespace VTInformatica.Controllers
         }
 
         [HttpPut("UpdateUser/{id}")]
+        [Authorize]
         public async Task<IActionResult> UpdateUser([FromBody] UpdateUserDto dto, string id)
         {
+            // Solo il proprio profilo (id dal token), salvo Admin.
+            if (id != User.FindFirstValue(ClaimTypes.NameIdentifier) && !User.IsInRole("Admin"))
+                return Forbid();
+
             var success = await _accountService.UpdateUserAsync(id, dto);
             if (!success)
                 return NotFound(new { message = "Utente non trovato o errore nell'aggiornamento." });
