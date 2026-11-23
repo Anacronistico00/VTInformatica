@@ -92,7 +92,7 @@ namespace VTInformatica.Controllers
                 return BadRequest(new { message = "User registration failed.", errors = result.Errors.Select(e => e.Description) });
             }
 
-            await _userManager.AddToRoleAsync(newUser, "Admin");
+            await _userManager.AddToRoleAsync(newUser, "Customer");
 
             return Ok(new { message = "Registrazione effettuata con successo!" });
         }
