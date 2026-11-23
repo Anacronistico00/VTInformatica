@@ -6,14 +6,13 @@ using VTInformatica.Data;
 using VTInformatica.DTOs.Cart;
 using VTInformatica.Tests.Infrastructure;
 
-namespace VTInformatica.Tests.Characterization;
+namespace VTInformatica.Tests.Security;
 
 /// <summary>
 /// Controllo di proprietà sul carrello (audit #2, esteso al carrello in M1c).
 /// Scenario: A ha nel carrello 3 pezzi di un prodotto, B è un altro utente autenticato.
 /// </summary>
 [Collection(ApiCollection.Name)]
-[Trait("Category", "Characterization")]
 public class CartOwnershipTests
 {
     private const int InitialQuantity = 3;
