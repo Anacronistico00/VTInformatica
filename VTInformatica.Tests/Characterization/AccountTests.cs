@@ -35,10 +35,10 @@ public class AccountTests
     }
 
     [Fact]
-    public async Task Register_NewUser_IsAssignedAdminRole()
+    public async Task Register_NewUser_IsAssignedCustomerRole()
     {
-        // AUDIT #1: ogni registrazione crea un Admin (AccountController.Register → AddToRoleAsync(newUser, "Admin")).
-        // Comportamento SBAGLIATO documentato: in M1 il ruolo atteso diventerà "Customer".
+        // AUDIT #1 risolto in M1a: il ruolo di default alla registrazione è Customer (prima era Admin).
+        // L'uguaglianza sull'array completo garantisce anche che Admin NON sia assegnato.
         var client = _factory.CreateClient();
         var email = TestHelpers.UniqueEmail();
 
@@ -51,7 +51,7 @@ public class AccountTests
         Assert.NotNull(user);
 
         var roles = await userManager.GetRolesAsync(user!);
-        Assert.Equal(new[] { "Admin" }, roles);
+        Assert.Equal(new[] { "Customer" }, roles);
     }
 
     [Fact]
@@ -68,9 +68,9 @@ public class AccountTests
     }
 
     [Fact]
-    public async Task Login_ValidCredentials_ReturnsJwt_WithEmailAndAdminRoleClaims()
+    public async Task Login_ValidCredentials_ReturnsJwt_WithEmailAndCustomerRoleClaims()
     {
-        // AUDIT #1 (conseguenza): il token di un utente appena registrato contiene role=Admin.
+        // AUDIT #1 risolto in M1a: il token di un utente appena registrato contiene solo role=Customer.
         var client = _factory.CreateClient();
         var email = TestHelpers.UniqueEmail();
         await TestHelpers.RegisterAsync(client, email);
@@ -84,7 +84,7 @@ public class AccountTests
         // AccountController.Login costruisce il token con new JwtSecurityToken(...): i claim
         // mantengono i tipi URI completi di ClaimTypes (nessuna mappatura a "email"/"role").
         Assert.Equal(email, jwt.Claims.Single(c => c.Type == ClaimTypes.Email).Value);
-        Assert.Equal(new[] { "Admin" }, jwt.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value));
+        Assert.Equal(new[] { "Customer" }, jwt.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value));
 
         // Il token è firmato con la configurazione di test, non con quella di appsettings.json.
         Assert.Equal(VtWebApplicationFactory.JwtIssuer, jwt.Issuer);
