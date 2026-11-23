@@ -6,6 +6,7 @@ using VTInformatica.DTOs.Order;
 using VTInformatica.DTOs.Product;
 using VTInformatica.DTOs.Review;
 using VTInformatica.DTOs.SubCategory;
+using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 
@@ -28,28 +29,7 @@ namespace VTInformatica.Services
                 .ThenInclude(p => p.ProductImages)
                 .ToListAsync();
 
-            return orders.Select(o => new GetOrderDto
-            {
-                Id = o.Id,
-                OrderNumber = o.OrderNumber,
-                CustomerEmail = o.CustomerEmail,
-                CreatedAt = o.CreatedAt,
-                CustomerComment = o.CustomerComment,
-                IsDeleted = o.IsDeleted,
-                Items = o.OrderItems.Select(oi => new GetOrderItemsDto
-                {
-                    Quantity = oi.Quantity,
-                    Product = new GetOrderProductDto()
-                    {
-                        Name = oi.Product.Name,
-                        Price = oi.Product.Price,
-                        ProductImages = oi.Product.ProductImages.Select(pi => new ProductImageDto
-                        {
-                            ImageUrl = pi.ImageUrl,
-                        }).ToList(),
-                    }
-                }).ToList()
-            }).ToList();
+            return orders.Select(ToDto).ToList();
         }
 
         public async Task<GetOrderDto?> GetByIdAsync(int id)
@@ -62,29 +42,7 @@ namespace VTInformatica.Services
 
             if (order == null) return null;
 
-            return new GetOrderDto
-            {
-                Id = order.Id,
-                OrderNumber = order.OrderNumber,
-                CustomerEmail = order.CustomerEmail,
-                CreatedAt = order.CreatedAt,
-                CustomerComment = order.CustomerComment,
-                IsDeleted = order.IsDeleted,
-                Items = order.OrderItems.Select(oi => new GetOrderItemsDto
-                {
-                    Quantity = oi.Quantity,
-                    Product = new GetOrderProductDto
-                    {
-                        Name = oi.Product.Name,
-                        Price = oi.Product.Price,
-                        ProductImages = oi.Product.ProductImages.Select(pi => new ProductImageDto
-                        {
-                            ImageUrl = pi.ImageUrl
-                        }).ToList()
-                    }
-                }).ToList()
-            };
-
+            return ToDto(order);
         }
 
         public async Task<List<GetOrderDto>> GetOrdersByEmailAsync(string email)
@@ -98,31 +56,34 @@ namespace VTInformatica.Services
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Reviews)
                 .ToListAsync();
 
-            return orders.Select(o => new GetOrderDto
-            {
-                Id = o.Id,
-                OrderNumber = o.OrderNumber,
-                CustomerEmail = o.CustomerEmail,
-                CreatedAt = o.CreatedAt,
-                CustomerComment = o.CustomerComment,
-                IsDeleted = o.IsDeleted,
-                Items = o.OrderItems.Select(oi => new GetOrderItemsDto
-                {
-                    Quantity = oi.Quantity,
-                    Product = new GetOrderProductDto
-                    {
-                        Name = oi.Product.Name,
-                        Price = oi.Product.Price,
-                        ProductImages = oi.Product.ProductImages != null
-                            ? oi.Product.ProductImages.Select(img => new ProductImageDto
-                            {
-                                ImageUrl = img.ImageUrl
-                            }).ToList()
-                            : new List<ProductImageDto>()
-                    }
-                }).ToList()
-            }).ToList();
+            return orders.Select(ToDto).ToList();
         }
+
+        // Unico punto di mapping Order -> GetOrderDto (prima duplicato in tre metodi).
+        private static GetOrderDto ToDto(Order order) => new GetOrderDto
+        {
+            Id = order.Id,
+            OrderNumber = order.OrderNumber,
+            CustomerEmail = order.CustomerEmail,
+            CreatedAt = order.CreatedAt,
+            CustomerComment = order.CustomerComment,
+            IsDeleted = order.IsDeleted,
+            Items = order.OrderItems.Select(oi => new GetOrderItemsDto
+            {
+                Quantity = oi.Quantity,
+                Product = new GetOrderProductDto
+                {
+                    Name = oi.Product.Name,
+                    Price = oi.UnitPrice,
+                    ProductImages = oi.Product.ProductImages != null
+                        ? oi.Product.ProductImages.Select(img => new ProductImageDto
+                        {
+                            ImageUrl = img.ImageUrl
+                        }).ToList()
+                        : new List<ProductImageDto>()
+                }
+            }).ToList()
+        };
 
         public async Task<GetOrderDto> CreateOrderFromCartAsync(string userEmail)
         {
@@ -134,30 +95,49 @@ namespace VTInformatica.Services
                 throw new InvalidOperationException("Il carrello è vuoto.");
             }
 
+            // AUDIT #7: ordine, stock e svuotamento carrello sono tutto o niente.
+            // Se un'eccezione esce prima del Commit, il dispose fa rollback.
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             var order = new Order
             {
                 CustomerId = cart.UserId,
                 CustomerEmail = userEmail,
                 CustomerComment = "Ordine creato dal carrello",
-                OrderItems = cart.Items.Select(item => new OrderItem
-                {
-                    ProductId = item.ProductId,
-                    Quantity = item.Quantity
-                }).ToList()
+                OrderItems = new List<OrderItem>()
             };
 
-            foreach (var item in cart.Items)
-            {
-                var product = await _context.Products.FindAsync(item.ProductId);
+            // Prezzi letti senza tracking: lo stock non passa dal change tracker.
+            var productIds = cart.Items.Select(i => i.ProductId).ToList();
+            var prices = await _context.Products.AsNoTracking()
+                .Where(p => productIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Price);
 
-                if (product == null || product.Quantity < item.Quantity)
+            // AUDIT #7: decremento atomico condizionale (UPDATE ... WHERE Quantity >= qty).
+            // Ordine per ProductId: transazioni concorrenti bloccano le righe nello stesso ordine (niente deadlock).
+            foreach (var item in cart.Items.OrderBy(i => i.ProductId))
+            {
+                if (!prices.TryGetValue(item.ProductId, out var unitPrice))
                 {
-                    throw new InvalidOperationException($"Prodotto {item.ProductId} non disponibile in quantità sufficiente.");
+                    throw new ProductNotFoundException(item.ProductId);
                 }
 
-                product.Quantity -= item.Quantity;
+                var updated = await _context.Products
+                    .Where(p => p.Id == item.ProductId && p.Quantity >= item.Quantity)
+                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Quantity, p => p.Quantity - item.Quantity));
 
-                _context.Products.Update(product);
+                if (updated == 0)
+                {
+                    // Il dispose della transazione annulla anche i decrementi già fatti.
+                    throw new InsufficientStockException(item.ProductId);
+                }
+
+                order.OrderItems.Add(new OrderItem
+                {
+                    ProductId = item.ProductId,
+                    Quantity = item.Quantity,
+                    UnitPrice = unitPrice
+                });
             }
 
             _context.Orders.Add(order);
@@ -165,6 +145,8 @@ namespace VTInformatica.Services
 
             _context.CartItems.RemoveRange(cart.Items);
             await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
 
             return await GetByIdAsync(order.Id);
         }
