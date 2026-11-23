@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using System.Security.Claims;
 using VTInformatica.DTOs.Cart;
+using VTInformatica.Extensions;
 using VTInformatica.Interfaces;
 
 namespace VTInformatica.Controllers
@@ -20,26 +21,21 @@ namespace VTInformatica.Controllers
             _cartService = cartService;
         }
 
-        // Identità sempre dai claim del JWT, mai dalla route (stessi helper di OrderController).
-        private string? CurrentEmail => User.FindFirstValue(ClaimTypes.Email);
-
-        private bool IsCurrentUser(string? email) =>
-            CurrentEmail != null && string.Equals(email, CurrentEmail, StringComparison.OrdinalIgnoreCase);
-
-        // L'item deve appartenere al carrello dell'utente autenticato.
+        // L'item deve appartenere al carrello dell'utente autenticato (identità dai claim del JWT).
         private async Task<bool> ItemBelongsToCurrentUserAsync(int cartItemId)
         {
-            if (CurrentEmail == null)
+            var currentEmail = User.GetEmail();
+            if (currentEmail == null)
                 return false;
 
-            var cart = await _cartService.GetCartByEmailAsync(CurrentEmail);
+            var cart = await _cartService.GetCartByEmailAsync(currentEmail);
             return cart != null && cart.Items.Any(i => i.Id == cartItemId);
         }
 
         [HttpGet("{email}")]
         public async Task<IActionResult> GetCart(string email)
         {
-            if (!IsCurrentUser(email))
+            if (!User.HasEmail(email))
                 return Forbid();
 
             try
@@ -61,7 +57,7 @@ namespace VTInformatica.Controllers
         [HttpPost("{email}/add")]
         public async Task<IActionResult> AddItem(string email, [FromBody] CartItemDto dto)
         {
-            if (!IsCurrentUser(email))
+            if (!User.HasEmail(email))
                 return Forbid();
 
             try
@@ -127,7 +123,7 @@ namespace VTInformatica.Controllers
         [HttpDelete("{email}/clear")]
         public async Task<IActionResult> ClearCart(string email)
         {
-            if (!IsCurrentUser(email))
+            if (!User.HasEmail(email))
                 return Forbid();
 
             try

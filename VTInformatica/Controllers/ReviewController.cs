@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using System.Security.Claims;
 using VTInformatica.DTOs.Review;
+using VTInformatica.Extensions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 using VTInformatica.Services;
@@ -71,8 +72,8 @@ namespace VTInformatica.Controllers
         public async Task<IActionResult> Create([FromBody] CreateReviewDto dto)
         {
             // Identità sempre dal JWT: UserId/Email del body vengono sovrascritti.
-            var loggedUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var loggedEmail = User.FindFirstValue(ClaimTypes.Email);
+            var loggedUserId = User.GetUserId();
+            var loggedEmail = User.GetEmail();
             if (string.IsNullOrEmpty(loggedUserId) || string.IsNullOrEmpty(loggedEmail))
             {
                 return Unauthorized(new { message = "User not logged in." });
@@ -99,7 +100,7 @@ namespace VTInformatica.Controllers
         {
             try
             {
-                var loggedUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var loggedUserId = User.GetUserId();
                 if (string.IsNullOrEmpty(loggedUserId))
                 {
                     return Unauthorized(new { message = "User not logged in." });
@@ -126,7 +127,7 @@ namespace VTInformatica.Controllers
         {
             try
             {
-                var loggedUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var loggedUserId = User.GetUserId();
                 if (string.IsNullOrEmpty(loggedUserId))
                 {
                     return Unauthorized(new { message = "User not logged in." });
