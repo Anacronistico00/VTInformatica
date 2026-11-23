@@ -22,6 +22,9 @@ public class VtWebApplicationFactory : WebApplicationFactory<Program>
     public const string JwtIssuer = "https://tests.vtinformatica.local";
     public const string JwtAudience = "https://tests-audience.vtinformatica.local";
 
+    // Unica origine CORS ammessa nei test.
+    public const string AllowedCorsOrigin = "https://allowed-origin.test.local";
+
     // Il DB SQLite in-memory vive finché questa connessione resta aperta.
     private readonly SqliteConnection _connection;
 
@@ -45,6 +48,10 @@ public class VtWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Issuer", JwtIssuer);
         builder.UseSetting("Jwt:Audience", JwtAudience);
         builder.UseSetting("Jwt:ExpiresInMinutes", "60");
+
+        // Sovrascrive l'elemento 0 di Cors:AllowedOrigins di appsettings.json:
+        // nei test l'unica origine ammessa è AllowedCorsOrigin.
+        builder.UseSetting("Cors:AllowedOrigins:0", AllowedCorsOrigin);
 
         builder.ConfigureTestServices(services =>
         {
