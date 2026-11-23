@@ -154,3 +154,70 @@ Il testo sopra è la baseline e non va modificato.
 - FE: `npm audit` 16 vulnerabilità (2 low, 2 moderate, 12 high), in gran parte
   dev-dependency; react-router a runtime. Da verificare: crash di NavBar dopo il
   reset della persistenza.
+
+---
+
+## Stato avanzamento M2 (aggiornato 2026-11-23)
+
+Branch `fix/m2-orders-correctness`, test-first (per ogni punto prima il test
+rosso, poi il fix). Le sezioni sopra non sono state modificate: questa aggiorna
+la riga "6, 7, 8 – Aperti – M2" della tabella precedente.
+
+| #                      | Stato  | Come                                                                                                                                             |
+| ---------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 6 Prezzo storico       | Chiuso | `OrderItem.UnitPrice` salvato al checkout, gli ordini lo mostrano al posto del prezzo corrente. Migration `AddUnitPriceToOrderItem` con backfill |
+| 7 Stock / transazione  | Chiuso | Checkout in un'unica transazione (tutto o niente); decremento atomico condizionale `UPDATE … WHERE Quantity >= qty`, in ordine di `ProductId`    |
+| 8 Validazione quantità | Chiuso | `[Range(1, …)]` su `CartItemDto` → 400; stock insufficiente → 409 (carrello e checkout); prodotto inesistente → 404                              |
+
+- Test: 42 → 54 (cartella `Correctness/`). Warning di build: 110.
+- Mapping ordine → DTO centralizzato in `OrderService.ToDto` (era copiato 3
+  volte).
+- Nuove eccezioni di dominio generiche in `Exceptions/`
+  (`ProductNotFoundException`, `InsufficientStockException`), catturate nei
+  controller prima del catch generico.
+- **FE deve gestire 400/404/409 su carrello e checkout (M4).**
+
+### Limiti noti
+
+- **Backfill approssimato**: per le righe d'ordine esistenti `UnitPrice` è il
+  prezzo corrente del prodotto al momento della migration; il prezzo storico
+  reale non era mai stato salvato.
+- **Migration non verificata da CI**: i test usano SQLite con `EnsureCreated`.
+  Migration e backfill vanno provati con `dotnet ef database update` su SQL
+  Server prima del deploy.
+- **Concorrenza simulata**: SQLite in-memory con una sola connessione non
+  riproduce un race reale. L'ordine concorrente è simulato in modo
+  deterministico da un interceptor (scrittura dello stock tra lettura e
+  aggiornamento). Il race reale con N checkout paralleli richiede SQL Server
+  (Testcontainers): previsto in un branch `test/...` dopo M2.
+- Il controllo dello stock all'aggiunta al carrello è indicativo; la garanzia
+  vera è al checkout.
+
+### Fuori scope emersi in M2 (non toccati)
+
+1. **`OrderItem → Product` in cascade delete**: cancellare un prodotto cancella
+   lo storico ordini.
+2. **Seed dei ruoli con `Guid.NewGuid()`** (`ApplicationDbContext`): ogni
+   `migrations add` genera Delete/InsertData dei ruoli e svuota AspNetUserRoles:
+   da correggere prima di qualsiasi altra migration o upgrade a EF Core 9. In M2
+   le operazioni sui ruoli sono state rimosse a mano dalla migration, dallo
+   snapshot e dal Designer.
+3. `SoftDeleteAsync` / `RestoreAsync`: stesso read-modify-write sullo stock;
+   `Restore` con stock insufficiente risponde 404 (fuorviante).
+4. Modifica prodotto lato admin: può sovrascrivere `Quantity` con un valore
+   vecchio (lost update).
+5. `CreateProductDto.Quantity` / `UpdateProductDto.Quantity` senza `[Range]`: lo
+   stock può diventare negativo.
+6. DTO morti, non usati da controller o service: `CartDto`, `OrderItemDto`,
+   `CreateOrderDto`, `OrderDto`.
+7. `GetCartByEmailAsync` aggiunge un `Cart` al context dentro un getter;
+   `ItemBelongsToCurrentUserAsync` carica l'intero carrello.
+8. `Cart.TotalPrice` persistito, ridondante e ricalcolato due volte in
+   `AddItemAsync`.
+9. `CartController.AddItem`: controllo `userId` ridondante, la risposta non
+   restituisce il carrello.
+10. `OrderNumber` = primi 8 caratteri di un GUID, senza indice unique.
+11. `CustomerComment` hardcoded ("Ordine creato dal carrello").
+12. `Product.Price` senza precisione esplicita.
+13. Carrello vuoto al checkout → 500 (#11, M3).
+14. `GetOrdersByEmailAsync` con 5 livelli di include (#12, M3).
