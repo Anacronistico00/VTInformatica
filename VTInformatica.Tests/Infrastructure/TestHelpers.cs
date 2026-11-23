@@ -1,12 +1,14 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using VTInformatica.Data;
 using VTInformatica.DTOs.Account;
 using VTInformatica.DTOs.Cart;
 using VTInformatica.DTOs.Order;
 using VTInformatica.Models;
+using VTInformatica.Models.Auth;
 
 namespace VTInformatica.Tests.Infrastructure;
 
@@ -37,6 +39,32 @@ public static class TestHelpers
 
         var register = await RegisterAsync(client, email);
         Assert.Equal(HttpStatusCode.OK, register.StatusCode);
+
+        var login = await LoginAsync(client, email);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        var token = await login.Content.ReadFromJsonAsync<TokenResponseDto>();
+        return token!.Token;
+    }
+
+    /// <summary>
+    /// Registra un utente, lo promuove ad Admin via UserManager e solo dopo fa login
+    /// (i ruoli entrano nel JWT al momento del login). Restituisce il token.
+    /// </summary>
+    public static async Task<string> RegisterAndLoginAsAdminAsync(VtWebApplicationFactory factory, string email)
+    {
+        var client = factory.CreateClient();
+
+        var register = await RegisterAsync(client, email);
+        Assert.Equal(HttpStatusCode.OK, register.StatusCode);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            var result = await userManager.AddToRoleAsync(user!, "Admin");
+            Assert.True(result.Succeeded);
+        }
 
         var login = await LoginAsync(client, email);
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
