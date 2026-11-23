@@ -73,6 +73,14 @@ public static class TestHelpers
         return token!.Token;
     }
 
+    public static async Task<string> GetUserIdAsync(VtWebApplicationFactory factory, string email)
+    {
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await userManager.FindByEmailAsync(email);
+        return user!.Id;
+    }
+
     public static HttpClient AuthorizedClient(VtWebApplicationFactory factory, string token)
     {
         var client = factory.CreateClient();
