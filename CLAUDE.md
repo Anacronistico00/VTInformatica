@@ -4,8 +4,7 @@
 
 - ASP.NET Core Web API (net8.0), EF Core 8 (SQL Server), ASP.NET Identity + JWT
   Bearer, Serilog, Swagger
-- Nessun progetto di test al momento (da aggiungere: xUnit in
-  `VTInformatica.Tests`)
+- xUnit + WebApplicationFactory
 
 ## Comandi
 
@@ -53,6 +52,12 @@
 - Non toccare migrazioni già applicate. Mai committare segreti (chiave JWT,
   connection string con credenziali): usare User Secrets / variabili d'ambiente.
 - Se una scelta di architettura è ambigua, chiedi invece di decidere da solo.
+- Bug noti: per ogni falla prima un test rosso, poi il fix minimo. I test in
+  `Characterization/` con commento `AUDIT #n` documentano bug ancora aperti: non
+  "sistemarli" senza istruzione esplicita, vanno invertiti solo nella fetta che
+  chiude quel punto.
+- DB nei test: SQLite in-memory. Non verifica le migrazioni SQL Server né la
+  concorrenza (stock): quei test richiederanno SQL Server reale.
 
 ## Flusso Git
 
