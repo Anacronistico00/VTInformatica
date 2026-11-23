@@ -56,6 +56,17 @@ try
 
     builder.Services.Configure<Jwt>(builder.Configuration.GetSection(nameof(Jwt)));
 
+    // La chiave JWT non è in appsettings.json: arriva da User Secrets (Development)
+    // o dalla variabile d'ambiente Jwt__SecurityKey. Il messaggio non contiene mai la chiave.
+    var jwtKey = builder.Configuration["Jwt:SecurityKey"];
+    if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+    {
+        throw new InvalidOperationException(
+            "Configurazione mancante: Jwt:SecurityKey assente o più corta di 32 caratteri. " +
+            "Impostarla con 'dotnet user-secrets set \"Jwt:SecurityKey\" <chiave>' (Development) " +
+            "o con la variabile d'ambiente Jwt__SecurityKey.");
+    }
+
     builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
     {
         options.SignIn.RequireConfirmedAccount =
@@ -100,7 +111,7 @@ try
 
                ValidAudience = builder.Configuration.GetSection(nameof(Jwt)).GetValue<string>("Audience"),
 
-               IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration.GetSection(nameof(Jwt)).GetValue<string>("SecurityKey")))
+               IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
            };
        });
 
@@ -129,8 +140,11 @@ try
 
     var app = builder.Build();
 
+    // Solo le origini configurate in Cors:AllowedOrigins (audit #10).
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+
     app.UseCors(c =>
-        c.AllowAnyOrigin()
+        c.WithOrigins(allowedOrigins)
         .AllowAnyMethod()
         .AllowAnyHeader()
         );
