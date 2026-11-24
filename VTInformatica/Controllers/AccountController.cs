@@ -9,6 +9,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using VTInformatica.DTOs.Account;
+using VTInformatica.Errors;
 using VTInformatica.Exceptions;
 using VTInformatica.Models.Auth;
 using VTInformatica.Services;
@@ -274,11 +275,8 @@ namespace VTInformatica.Controllers
                 ? AccountProblem(StatusCodes.Status403Forbidden, "Account disattivato.", "account_deactivated")
                 : AccountProblem(StatusCodes.Status403Forbidden, "Account sospeso.", "account_suspended");
 
-        private ObjectResult AccountProblem(int statusCode, string title, string code)
-        {
-            var problem = ProblemDetailsFactory.CreateProblemDetails(HttpContext, statusCode: statusCode, title: title);
-            problem.Extensions["code"] = code;
-            return new ObjectResult(problem) { StatusCode = statusCode };
-        }
+        // Stesso formato del gestore globale (Errors/ApiProblems).
+        private ObjectResult AccountProblem(int statusCode, string title, string code) =>
+            this.ApiProblem(statusCode, code, title: title);
     }
 }
