@@ -524,3 +524,36 @@ i fuori scope M2 n. 3, 10, 11 e il punto "identità dal token" per carrello/ordi
 
 1. Collisione di `OrderNumber` (8 caratteri di GUID): ora un errore invece di un
    duplicato silenzioso; la generazione non cambia.
+
+## Stato avanzamento M3c2 – catalogo, review, account (aggiornato 2026-11-24)
+
+Branch `fix/m3c2-catalog-reviews-account`, test-first (piano in
+`docs/PIANO-M3c2.md`). Chiude i fuori scope M3b n. 1, 2, 3 e i finding su review ed
+email.
+
+| Voce                                 | Stato  | Come                                                                                                                                                                                               |
+| ------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SubCategory con categoria inesistente | Chiuso | 400 `category_not_found` in create/update (era 500)                                                                                                                                                |
+| `Product.CategoryId` duplicato       | Chiuso | Rimosso: la categoria è `SubCategory.CategoryId`. Filtro `GET /Product/category/{id}` via sottocategoria, `category` nelle risposte derivato (stessa forma). Migration `RemoveProductCategoryId` |
+| Review con prodotto inesistente      | Chiuso | 404 `product_not_found` (anche prodotto eliminato); era 500                                                                                                                                        |
+| Rating review                        | Chiuso | `[Range(1, 5)]` su create e update → 400 `validation_failed`                                                                                                                                       |
+| Email nelle review                   | Chiuso | `customerEmail` non esce più dalle risposte prodotto (`ProductReviewDto`). `GET /Review` e `/Review/{id}` (Admin/Seller) la mantengono per la moderazione                                         |
+| Email unica                          | Chiuso | `RequireUniqueEmail = true`                                                                                                                                                                        |
+| Mapping prodotto                     | Fatto  | `Mapping/ProductMapper`: un solo punto al posto di 5 copie (comportamento invariato; `manufacturerId` annidato resta 0 fino a M3d)                                                                |
+
+- Test: 188 → 203. Warning di build: 109 → 108 (il refactor del mapping ne ha tolto uno).
+- **FE (M4)**: nessun uso di review né di `customerEmail` nel FE attuale; la
+  forma delle risposte prodotto non cambia, tranne l'assenza di `customerEmail`
+  nelle review.
+- Migration provata sul DB SQL Server locale: backup con `sqlcmd` (verificato),
+  `database update`, Down, Up. `AspNetUserRoles` = 5, ruoli = 3, prodotti = 12
+  invariati; nessuna operazione su `AspNetRoles`. Il Down ripopola `CategoryId`
+  dalla sottocategoria prima di ricreare la FK (0 incoerenze dopo il Down). Il DB
+  locale non aveva prodotti con categoria diversa da quella della sottocategoria.
+
+### Fuori scope (non toccati)
+
+1. Nessun indice unique su `AspNetUsers.NormalizedEmail`: `RequireUniqueEmail` è
+   solo validazione di Identity.
+2. Se un DB di produzione ha email duplicate, dopo `RequireUniqueEmail` l'update
+   di quegli utenti fallisce: verificare prima del deploy.
