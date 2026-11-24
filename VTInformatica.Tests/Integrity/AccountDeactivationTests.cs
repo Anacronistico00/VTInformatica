@@ -164,6 +164,175 @@ public class AccountDeactivationTests
         Assert.True((await FindUserAsync(adminEmail)).IsActive);
     }
 
+    // ---- Suspend / unsuspend (solo Admin) ----
+
+    [Fact]
+    public async Task Suspend_AsAdmin_SetsReasonNoteDate_AndSuspendedTokenReturns401()
+    {
+        var email = TestHelpers.UniqueEmail();
+        var user = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+        var admin = await AdminClientAsync();
+
+        var response = await admin.PutAsJsonAsync($"/Account/{userId}/suspend", new { note = "Recensioni offensive" });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var suspended = await FindUserAsync(email);
+        Assert.False(suspended.IsActive);
+        Assert.Equal(DeactivationReason.Admin, suspended.DeactivationReason);
+        Assert.Equal("Recensioni offensive", suspended.DeactivationNote);
+        Assert.NotNull(suspended.DeactivatedAt);
+
+        // Effetto immediato: il token del sospeso non vale più; il login dice "sospeso".
+        Assert.Equal(HttpStatusCode.Unauthorized, (await user.GetAsync($"/Cart/{email}")).StatusCode);
+        var login = await TestHelpers.LoginAsync(_factory.CreateClient(), email);
+        Assert.Equal(HttpStatusCode.Forbidden, login.StatusCode);
+        Assert.Equal("account_suspended", await CodeAsync(login));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Suspend_WithoutNote_Returns400(string? note)
+    {
+        var email = await CreateUserAsync("active");
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+        var admin = await AdminClientAsync();
+
+        var response = await admin.PutAsJsonAsync($"/Account/{userId}/suspend", new { note });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.True((await FindUserAsync(email)).IsActive);
+    }
+
+    [Fact]
+    public async Task Suspend_NoteTooLong_Returns400()
+    {
+        var userId = await TestHelpers.GetUserIdAsync(_factory, await CreateUserAsync("active"));
+        var admin = await AdminClientAsync();
+
+        var response = await admin.PutAsJsonAsync($"/Account/{userId}/suspend", new { note = new string('x', 501) });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Suspend_Self_Returns400()
+    {
+        var adminEmail = TestHelpers.UniqueEmail();
+        var admin = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsAdminAsync(_factory, adminEmail));
+        var adminId = await TestHelpers.GetUserIdAsync(_factory, adminEmail);
+
+        var response = await admin.PutAsJsonAsync($"/Account/{adminId}/suspend", new { note = "Prova" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.True((await FindUserAsync(adminEmail)).IsActive);
+    }
+
+    [Fact]
+    public async Task Suspend_AdminUser_Returns409CannotSuspendAdmin()
+    {
+        // Protezione minima: un admin non sospende un altro admin (gestione ruoli fuori scope).
+        var otherAdminEmail = TestHelpers.UniqueEmail();
+        await TestHelpers.RegisterAndLoginAsAdminAsync(_factory, otherAdminEmail);
+        var otherAdminId = await TestHelpers.GetUserIdAsync(_factory, otherAdminEmail);
+        var admin = await AdminClientAsync();
+
+        var response = await admin.PutAsJsonAsync($"/Account/{otherAdminId}/suspend", new { note = "Prova" });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("cannot_suspend_admin", await CodeAsync(response));
+        Assert.True((await FindUserAsync(otherAdminEmail)).IsActive);
+    }
+
+    [Fact]
+    public async Task Suspend_AsCustomer_Returns403()
+    {
+        var targetId = await TestHelpers.GetUserIdAsync(_factory, await CreateUserAsync("active"));
+        var customer = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail()));
+
+        var response = await customer.PutAsJsonAsync($"/Account/{targetId}/suspend", new { note = "Prova" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Suspend_MissingUser_Returns404()
+    {
+        var admin = await AdminClientAsync();
+
+        var response = await admin.PutAsJsonAsync($"/Account/{Guid.NewGuid()}/suspend", new { note = "Prova" });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("deactivated")]
+    [InlineData("suspended")]
+    public async Task Suspend_InactiveUser_BecomesAdminSuspension_WithNewNote(string state)
+    {
+        // Un utente disattivato da sé diventa sospeso; un sospeso aggiorna la nota.
+        var email = await CreateUserAsync(state, note: "Nota precedente");
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+        var admin = await AdminClientAsync();
+
+        var response = await admin.PutAsJsonAsync($"/Account/{userId}/suspend", new { note = "Nota aggiornata" });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var user = await FindUserAsync(email);
+        Assert.Equal(DeactivationReason.Admin, user.DeactivationReason);
+        Assert.Equal("Nota aggiornata", user.DeactivationNote);
+    }
+
+    [Fact]
+    public async Task Unsuspend_ClearsFields_AndLoginWorks()
+    {
+        var email = await CreateUserAsync("suspended", note: "Sospensione temporanea");
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+        var admin = await AdminClientAsync();
+
+        var response = await admin.PutAsync($"/Account/{userId}/unsuspend", null);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var user = await FindUserAsync(email);
+        Assert.True(user.IsActive);
+        Assert.Null(user.DeactivationReason);
+        Assert.Null(user.DeactivationNote);
+        Assert.Null(user.DeactivatedAt);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.LoginAsync(_factory.CreateClient(), email)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("active")]
+    [InlineData("deactivated")]
+    public async Task Unsuspend_NotSuspended_Returns409NotSuspended(string state)
+    {
+        // Chi si è disattivato da sé si riattiva con la password, non con l'unsuspend.
+        var email = await CreateUserAsync(state);
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+        var admin = await AdminClientAsync();
+
+        var response = await admin.PutAsync($"/Account/{userId}/unsuspend", null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("not_suspended", await CodeAsync(response));
+        Assert.Equal(state == "active", (await FindUserAsync(email)).IsActive);
+    }
+
+    [Fact]
+    public async Task DeleteUserByEmail_IsRemoved()
+    {
+        // Sostituito da PUT /Account/{id}/suspend.
+        var email = await CreateUserAsync("active");
+        var admin = await AdminClientAsync();
+
+        var response = await admin.PutAsync($"/Account/DeleteUserByEmail/{email}", null);
+
+        Assert.Contains(response.StatusCode, new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed });
+        Assert.True((await FindUserAsync(email)).IsActive);
+    }
+
     // ---- Helper ----
 
     private static Task<HttpResponseMessage> DeleteAccountAsync(HttpClient client, string userId, object? body)
