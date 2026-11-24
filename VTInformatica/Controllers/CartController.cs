@@ -63,11 +63,8 @@ namespace VTInformatica.Controllers
             if (string.IsNullOrEmpty(email))
                 return this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
 
-            var cart = await _cartService.GetCartByEmailAsync(email);
-            if (cart == null)
-                return this.ApiProblem(StatusCodes.Status404NotFound, "not_found", "Carrello non trovato.");
-
-            return Ok(cart);
+            // Un utente senza carrello ne ha uno vuoto: la lettura non è mai un 404.
+            return Ok(await _cartService.GetCartByEmailAsync(email));
         }
 
         private async Task<IActionResult> AddItemCore(string? email, CartItemDto dto)

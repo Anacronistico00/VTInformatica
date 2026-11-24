@@ -10,12 +10,12 @@ namespace VTInformatica.Models
         public int CartId { get; set; }
 
         [ForeignKey("CartId")]
-        public Cart Cart { get; set; }
+        public Cart Cart { get; set; } = null!;
 
         public int ProductId { get; set; }
 
         [ForeignKey("ProductId")]
-        public Product Product { get; set; }
+        public Product Product { get; set; } = null!;
 
         [Range(1, int.MaxValue)]
         public int Quantity { get; set; }

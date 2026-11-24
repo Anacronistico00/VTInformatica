@@ -57,8 +57,9 @@ namespace VTInformatica.Services
             {
                 ReviewRating = dto.ReviewRating,
                 ReviewComment = dto.ReviewComment,
-                UserId = dto.UserId,
-                Email = dto.Email,
+                // Il controller li imposta sempre dai claim del JWT.
+                UserId = dto.UserId ?? throw new InvalidOperationException("Identità dell'autore mancante."),
+                Email = dto.Email ?? throw new InvalidOperationException("Identità dell'autore mancante."),
                 ProductId = dto.ProductId,
             };
 

@@ -74,7 +74,7 @@ namespace VTInformatica.Services
 
             var order = new Order
             {
-                CustomerId = cart.UserId,
+                CustomerId = cart.UserId ?? throw new InvalidOperationException("Carrello senza utente."),
                 CustomerEmail = userEmail,
                 CustomerComment = string.IsNullOrWhiteSpace(customerComment) ? null : customerComment.Trim(),
                 OrderItems = new List<OrderItem>()
@@ -121,7 +121,7 @@ namespace VTInformatica.Services
 
             await transaction.CommitAsync();
 
-            return await GetByIdAsync(order.Id);
+            return (await GetByIdAsync(order.Id))!;
         }
 
 

@@ -9,7 +9,7 @@ namespace VTInformatica.DTOs.Cart
 {
     public class GetCartProductDto
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         public decimal Price { get; set; }
 
