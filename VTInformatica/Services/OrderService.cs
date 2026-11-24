@@ -23,7 +23,9 @@ namespace VTInformatica.Services
 
         public async Task<List<GetOrderDto>> GetAllAsync()
         {
+            // IgnoreQueryFilters: lo storico include anche i prodotti eliminati (soft delete).
             var orders = await _context.Orders
+                .IgnoreQueryFilters()
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
                 .ThenInclude(p => p.ProductImages)
@@ -35,6 +37,7 @@ namespace VTInformatica.Services
         public async Task<GetOrderDto?> GetByIdAsync(int id)
         {
             var order = await _context.Orders
+                .IgnoreQueryFilters()
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
                 .ThenInclude(p => p.ProductImages)
@@ -48,6 +51,7 @@ namespace VTInformatica.Services
         public async Task<List<GetOrderDto>> GetOrdersByEmailAsync(string email)
         {
             var orders = await _context.Orders
+                .IgnoreQueryFilters()
                 .Where(o => o.CustomerEmail == email)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Manufacturer)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Category)
@@ -155,6 +159,7 @@ namespace VTInformatica.Services
         public async Task<bool> SoftDeleteAsync(int orderId)
         {
             var order = await _context.Orders
+                .IgnoreQueryFilters()
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
                 .FirstOrDefaultAsync(o => o.Id == orderId && !o.IsDeleted);
@@ -185,6 +190,7 @@ namespace VTInformatica.Services
         public async Task<bool> RestoreAsync(int orderId)
         {
             var order = await _context.Orders
+                .IgnoreQueryFilters()
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
                 .FirstOrDefaultAsync(o => o.Id == orderId && o.IsDeleted);

@@ -25,6 +25,9 @@ namespace VTInformatica.Models
         [Required]
         public int Quantity { get; set; }
 
+        // Soft delete: il prodotto sparisce dal catalogo (query filter) ma resta per lo storico ordini.
+        public bool IsDeleted { get; set; }
+
         public string? FullDescription { get; set; }
 
         public int CategoryId { get; set; }
