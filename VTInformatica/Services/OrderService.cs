@@ -89,7 +89,7 @@ namespace VTInformatica.Services
             }).ToList()
         };
 
-        public async Task<GetOrderDto> CreateOrderFromCartAsync(string userEmail)
+        public async Task<GetOrderDto> CreateOrderFromCartAsync(string userEmail, string? customerComment = null)
         {
             var cart = await _context.Carts.Include(c => c.Items)
                                             .FirstOrDefaultAsync(c => c.Email == userEmail);
@@ -107,7 +107,7 @@ namespace VTInformatica.Services
             {
                 CustomerId = cart.UserId,
                 CustomerEmail = userEmail,
-                CustomerComment = "Ordine creato dal carrello",
+                CustomerComment = string.IsNullOrWhiteSpace(customerComment) ? null : customerComment.Trim(),
                 OrderItems = new List<OrderItem>()
             };
 
