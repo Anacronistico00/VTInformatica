@@ -35,6 +35,20 @@ namespace VTInformatica.Controllers
             });
         }
 
+        // Le recensioni dell'utente del token: il FE le usa per offrire modifica ed eliminazione solo sulle proprie.
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetMine()
+        {
+            var loggedUserId = User.GetUserId();
+            if (string.IsNullOrEmpty(loggedUserId))
+            {
+                return NotLoggedIn();
+            }
+
+            return Ok(await _service.GetMineAsync(loggedUserId));
+        }
+
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin,Seller")]
         public async Task<IActionResult> GetById(int id)

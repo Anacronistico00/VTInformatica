@@ -599,3 +599,42 @@ minori di #15 che erano in M3; i refactor puri sono coperti dai test esistenti.
    null-safe).
 5. Nessuna paginazione/ordinamento su altri elenchi (categorie, produttori,
    review).
+
+## Chiusura M3 – verifiche (aggiornato 2026-11-24)
+
+- **Down delle migration con dati reali**: `RemoveProductCategoryId` e
+  `RemoveCartTotalPrice` ripopolano già le colonne ricreate (nessuna correzione
+  necessaria). Provato su una copia del DB locale (restore da backup) con un
+  carrello di 2 righe creato apposta: Down fino a `UniqueOrderNumber` →
+  `TotalPrice` 6644,75 uguale al ricalcolo dalle righe, carrello vuoto a 0;
+  `CategoryId` uguale a quello della sottocategoria per tutti i 12 prodotti, FK
+  ricreata, `AspNetUserRoles` = 5. Copia eliminata dopo la prova.
+- **Email duplicate**: 0 sul DB locale (5 utenti).
+- **Dati catalogo**: `docs/sql/correggi-dati-catalogo.sql` eseguito sul DB locale
+  dopo backup verificato: prodotto 18 senza spazi iniziali, categoria 2
+  "Periferiche".
+
+### Controlli obbligatori prima di un deploy
+
+1. **Email duplicate** (con `RequireUniqueEmail` l'update di quegli utenti
+   fallisce): deve restituire 0 righe.
+
+   ```sql
+   SELECT NormalizedEmail, COUNT(*) FROM AspNetUsers GROUP BY NormalizedEmail HAVING COUNT(*) > 1
+   ```
+
+2. Backup con `sqlcmd` (verificato con `RESTORE VERIFYONLY`) prima di
+   `dotnet ef database update`.
+3. `docs/sql/correggi-dati-catalogo.sql` sui DB creati da `DatabaseScript.sql`
+   (idempotente).
+
+## Modifiche BE richieste da M4 (FE) – aggiornato 2026-11-24
+
+- **CORS `X-Total-Count`**: già esposto da M3d (`WithExposedHeaders`, test
+  `TotalCountHeader_IsExposedToTheBrowser` con `Origin`). Nessuna fetta
+  `fix/cors-expose-total-count` necessaria.
+- **`feat/review-mine`** (piano in `docs/PIANO-review-mine.md`): `GET /Review/me`
+  `[Authorize]` restituisce le recensioni dell'utente del token (`reviewId`,
+  `productId`, `reviewRating`, `reviewComment`, `createdAt`), dalla più recente,
+  senza email. Serve al FE per offrire modifica ed eliminazione solo sulle
+  proprie. Test-first: 240 → 243. Warning: 0.
