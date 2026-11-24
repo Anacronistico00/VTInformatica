@@ -183,7 +183,10 @@ public class AccountIntegrityTests
     {
         var admin = TestHelpers.AuthorizedClient(_factory,
             await TestHelpers.RegisterAndLoginAsAdminAsync(_factory, TestHelpers.UniqueEmail()));
-        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsync($"/Account/DeleteUserByEmail/{email}", null)).StatusCode);
+        // DeleteUserByEmail è stato sostituito dalla sospensione (feat/account-reactivation).
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await admin.PutAsJsonAsync($"/Account/{userId}/suspend", new { note = "Disattivato dai test" })).StatusCode);
     }
 
     private async Task<ApplicationUser> FindUserAsync(string email)

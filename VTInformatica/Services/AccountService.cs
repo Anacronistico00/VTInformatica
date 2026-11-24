@@ -73,16 +73,45 @@ namespace VTInformatica.Services
             return result.Succeeded;
         }
 
-        public async Task<bool> DeleteUserAsync(string email)
+        /// <summary>
+        /// Sospensione da Admin (sostituisce DeleteUserByEmail). Un utente già disattivato diventa sospeso;
+        /// un sospeso aggiorna la nota. Gli Admin non sono sospendibili (gestione ruoli fuori scope).
+        /// </summary>
+        public async Task<AccountStatusChangeResult> SuspendAsync(string userId, string note)
         {
-            var user = await _userManager.FindByEmailAsync(email);
+            var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
-                return false;
+                return AccountStatusChangeResult.NotFound;
+
+            if (await _userManager.IsInRoleAsync(user, "Admin"))
+                return AccountStatusChangeResult.CannotSuspendAdmin;
 
             user.IsActive = false;
+            user.DeactivationReason = DeactivationReason.Admin;
+            user.DeactivationNote = note.Trim();
+            user.DeactivatedAt = DateTime.UtcNow;
 
             var result = await _userManager.UpdateAsync(user);
-            return result.Succeeded;
+            return result.Succeeded ? AccountStatusChangeResult.Done : throw new InvalidOperationException("Sospensione non salvata.");
+        }
+
+        /// <summary>Revoca solo una sospensione: chi si è disattivato da sé si riattiva con la password.</summary>
+        public async Task<AccountStatusChangeResult> UnsuspendAsync(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return AccountStatusChangeResult.NotFound;
+
+            if (user.IsActive || user.DeactivationReason != DeactivationReason.Admin)
+                return AccountStatusChangeResult.NotSuspended;
+
+            user.IsActive = true;
+            user.DeactivationReason = null;
+            user.DeactivationNote = null;
+            user.DeactivatedAt = null;
+
+            var result = await _userManager.UpdateAsync(user);
+            return result.Succeeded ? AccountStatusChangeResult.Done : throw new InvalidOperationException("Revoca della sospensione non salvata.");
         }
     }
 }
