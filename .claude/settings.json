@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git filter-repo:*)",
+      "Bash(rm -rf:*)",
+      "Read(**/secrets.json)",
+      "Read(**/UserSecrets/**)"
+    ]
+  }
+}
