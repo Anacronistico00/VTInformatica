@@ -11,6 +11,7 @@ using VTInformatica.DTOs.Manufacturer;
 using VTInformatica.DTOs.Product;
 using VTInformatica.DTOs.Review;
 using VTInformatica.DTOs.SubCategory;
+using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 using VTInformatica.Services;
@@ -236,6 +237,11 @@ namespace VTInformatica.Controllers
             {
                 var success = await _productService.UpdateAsync(id, dto);
                 return success ? NoContent() : NotFound();
+            }
+            catch (StockConflictException ex)
+            {
+                Log.Warning("Product update rejected: stock of product {ProductId} changed", ex.ProductId);
+                return Conflict(new { message = ex.Message });
             }
             catch (Exception ex)
             {

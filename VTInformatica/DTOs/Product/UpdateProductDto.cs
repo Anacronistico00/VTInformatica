@@ -23,6 +23,11 @@ namespace VTInformatica.DTOs.Product
         [Range(0, int.MaxValue)]
         public int Quantity { get; set; }
 
+        // Stock letto dall'admin quando ha aperto il form. Se presente, Quantity viene scritta
+        // solo se lo stock è ancora questo (altrimenti 409). Opzionale per compatibilità col FE (M4).
+        [Range(0, int.MaxValue)]
+        public int? ExpectedQuantity { get; set; }
+
         [Required]
         public string? FullDescription { get; set; }
 
