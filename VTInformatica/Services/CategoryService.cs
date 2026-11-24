@@ -2,6 +2,7 @@
 using VTInformatica.Data;
 using VTInformatica.DTOs.Category;
 using VTInformatica.DTOs.SubCategory;
+using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 
@@ -66,6 +67,14 @@ namespace VTInformatica.Services
         {
             var category = await _context.Categories.FindAsync(id);
             if (category == null) return false;
+
+            // Verifica esplicita invece di affidarsi all'errore FK del DB (indipendente dal provider).
+            // IgnoreQueryFilters: contano anche i prodotti eliminati, che mantengono lo storico ordini.
+            if (await _context.SubCategories.AnyAsync(sc => sc.CategoryId == id)
+                || await _context.Products.IgnoreQueryFilters().AnyAsync(p => p.CategoryId == id))
+                throw new ResourceInUseException(
+                    "La categoria ha sottocategorie o prodotti collegati (compresi quelli eliminati, che mantengono lo storico ordini): non può essere eliminata.");
+
             _context.Categories.Remove(category);
             await _context.SaveChangesAsync();
             return true;
