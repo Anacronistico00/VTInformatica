@@ -6,6 +6,7 @@ using VTInformatica.DTOs.Category;
 using VTInformatica.DTOs.Manufacturer;
 using VTInformatica.DTOs.Product;
 using VTInformatica.DTOs.SubCategory;
+using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 
@@ -112,7 +113,11 @@ namespace VTInformatica.Services
             product.Description = dto.Description;
             product.FullDescription = dto.FullDescription;
             product.Price = dto.Price;
-            product.Quantity = dto.Quantity;
+            if (dto.ExpectedQuantity == null)
+            {
+                // Comportamento precedente (sovrascrive lo stock): resta finché il FE non invia ExpectedQuantity.
+                product.Quantity = dto.Quantity;
+            }
             product.CategoryId = subCategory.CategoryId;
             product.SubCategoryId = dto.SubCategoryId;
 
@@ -141,7 +146,26 @@ namespace VTInformatica.Services
                 }
             }
 
+            if (dto.ExpectedQuantity == null)
+            {
+                await _context.SaveChangesAsync();
+                return true;
+            }
+
+            // Lost update: stock scritto solo se è ancora quello visto dall'admin (UPDATE ... WHERE Quantity = expected).
+            // Tutto o niente: se lo stock è cambiato il dispose della transazione annulla anche gli altri campi.
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            var updated = await _context.Products
+                .Where(p => p.Id == id && p.Quantity == dto.ExpectedQuantity)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.Quantity, dto.Quantity));
+            if (updated == 0)
+            {
+                throw new StockConflictException(id);
+            }
+
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return true;
         }
 
