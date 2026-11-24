@@ -11,9 +11,7 @@ namespace VTInformatica.Mapping
         {
             Id = c.Id,
             Name = c.Name,
-            SubCategories = c.SubCategories != null
-                ? c.SubCategories.Select(sc => new GetSubCategoryDto { Id = sc.Id, Name = sc.Name }).ToList()
-                : null
+            SubCategories = c.SubCategories!.Select(sc => new GetSubCategoryDto { Id = sc.Id, Name = sc.Name }).ToList()
         };
     }
 }

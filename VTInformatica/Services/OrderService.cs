@@ -25,7 +25,7 @@ namespace VTInformatica.Services
         public async Task<List<GetOrderDto>> GetAllAsync()
         {
             // IgnoreQueryFilters: lo storico include anche i prodotti eliminati (soft delete).
-            var orders = await _context.Orders
+            var orders = await _context.Orders.AsNoTracking()
                 .IgnoreQueryFilters()
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
@@ -37,7 +37,7 @@ namespace VTInformatica.Services
 
         public async Task<GetOrderDto?> GetByIdAsync(int id)
         {
-            var order = await _context.Orders
+            var order = await _context.Orders.AsNoTracking()
                 .IgnoreQueryFilters()
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
@@ -51,13 +51,10 @@ namespace VTInformatica.Services
 
         public async Task<List<GetOrderDto>> GetOrdersByEmailAsync(string email)
         {
-            var orders = await _context.Orders
+            var orders = await _context.Orders.AsNoTracking()
                 .IgnoreQueryFilters()
                 .Where(o => o.CustomerEmail == email)
-                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Manufacturer)
-                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.SubCategory)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.ProductImages)
-                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Reviews)
                 .ToListAsync();
 
             return orders.Select(OrderMapper.ToDto).ToList();
