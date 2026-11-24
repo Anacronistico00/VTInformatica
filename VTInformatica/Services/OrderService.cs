@@ -96,7 +96,7 @@ namespace VTInformatica.Services
 
             if (cart == null || !cart.Items.Any())
             {
-                throw new InvalidOperationException("Il carrello è vuoto.");
+                throw new EmptyCartException();
             }
 
             // AUDIT #7: ordine, stock e svuotamento carrello sono tutto o niente.
