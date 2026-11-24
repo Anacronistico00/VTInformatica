@@ -2,6 +2,7 @@
 using VTInformatica.Data;
 using VTInformatica.DTOs.Product;
 using VTInformatica.DTOs.Review;
+using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
 
@@ -73,6 +74,10 @@ namespace VTInformatica.Services
 
         public async Task<GetReviewDto> CreateAsync(CreateReviewDto dto)
         {
+            // Prodotto inesistente o eliminato (il query filter lo esclude): 404 invece della violazione FK (500).
+            if (!await _context.Products.AnyAsync(p => p.Id == dto.ProductId))
+                throw new ProductNotFoundException(dto.ProductId);
+
             var review = new Review
             {
                 ReviewRating = dto.ReviewRating,
