@@ -74,6 +74,9 @@ namespace VTInformatica.Data
             modelBuilder.Entity<CartItem>().HasOne(ci => ci.Cart).WithMany(c => c.Items).HasForeignKey(ci => ci.CartId);
             modelBuilder.Entity<CartItem>().HasOne(ci => ci.Product).WithMany(p => p.CartItems).HasForeignKey(ci => ci.ProductId);
 
+            // Numero ordine unico (M3c1): una collisione diventa un errore invece di un duplicato silenzioso.
+            modelBuilder.Entity<Order>().HasIndex(o => o.OrderNumber).IsUnique();
+
             // Lo storico ordini non deve mai essere cancellato insieme al prodotto (prima: cascade per convenzione).
             modelBuilder.Entity<OrderItem>().HasOne(oi => oi.Product).WithMany(p => p.Orders).HasForeignKey(oi => oi.ProductId).OnDelete(DeleteBehavior.Restrict);
 
