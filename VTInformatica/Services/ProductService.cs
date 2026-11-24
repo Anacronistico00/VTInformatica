@@ -2,6 +2,7 @@
 using Microsoft.Identity.Client.Extensions.Msal;
 using System.Runtime.Intrinsics.X86;
 using VTInformatica.Data;
+using VTInformatica.DTOs;
 using VTInformatica.DTOs.Category;
 using VTInformatica.DTOs.Manufacturer;
 using VTInformatica.DTOs.Product;
@@ -24,22 +25,31 @@ namespace VTInformatica.Services
 
         public async Task<List<Product>> GetAllAsync()
         {
-            return await _context.Products.AsNoTracking()
-                .Include(p => p.Manufacturer)
-                .Include(p => p.ProductImages)
-                .Include(p => p.SubCategory!.Category)
-                .Include(p => p.Reviews)
-                .ToListAsync();
+            return await ProductsWithDetails().ToListAsync();
         }
+
+        public async Task<(List<Product> Items, int Total)> GetPageAsync(PageQuery paging)
+        {
+            var total = await _context.Products.CountAsync();
+            var items = await ProductsWithDetails()
+                .OrderBy(p => p.Id)
+                .Skip(paging.Skip)
+                .Take(paging.Take)
+                .ToListAsync();
+
+            return (items, total);
+        }
+
+        // Letture senza tracking, con solo ciò che i DTO mostrano.
+        private IQueryable<Product> ProductsWithDetails() => _context.Products.AsNoTracking()
+            .Include(p => p.Manufacturer)
+            .Include(p => p.ProductImages)
+            .Include(p => p.SubCategory!.Category)
+            .Include(p => p.Reviews);
 
         public async Task<Product?> GetByIdAsync(int id)
         {
-            var product = await _context.Products.AsNoTracking()
-                .Include(p => p.Manufacturer)
-                .Include(p => p.ProductImages)
-                .Include(p => p.SubCategory!.Category)
-                .Include(p => p.Reviews)
-                .FirstOrDefaultAsync(p => p.Id == id);
+            var product = await ProductsWithDetails().FirstOrDefaultAsync(p => p.Id == id);
             if (product == null) return null;
 
             return product;
@@ -47,11 +57,7 @@ namespace VTInformatica.Services
 
         public async Task<List<Product>> SearchProductsAsync(string query)
         {
-            return await _context.Products.AsNoTracking()
-                .Include(p => p.Manufacturer)
-                .Include(p => p.SubCategory!.Category)
-                .Include(p => p.ProductImages)
-                .Include(p => p.Reviews)
+            return await ProductsWithDetails()
                 .Where(p =>
                     p.Name.ToLower().Contains(query.ToLower()) ||
                     p.Description.ToLower().Contains(query.ToLower()) ||

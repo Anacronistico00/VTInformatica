@@ -1,4 +1,5 @@
-﻿using VTInformatica.DTOs.Product;
+﻿using VTInformatica.DTOs;
+using VTInformatica.DTOs.Product;
 using VTInformatica.Models;
 
 namespace VTInformatica.Interfaces
@@ -6,6 +7,7 @@ namespace VTInformatica.Interfaces
     public interface IProductService
     {
         Task<List<Product>> GetAllAsync();
+        Task<(List<Product> Items, int Total)> GetPageAsync(PageQuery paging);
         Task<Product?> GetByIdAsync(int id);
         Task<List<Product>> SearchProductsAsync(string query);
         Task<Product> CreateAsync(CreateProductDto dto);

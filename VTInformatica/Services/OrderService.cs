@@ -1,11 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using VTInformatica.Data;
-using VTInformatica.DTOs.Category;
-using VTInformatica.DTOs.Manufacturer;
+using VTInformatica.DTOs;
 using VTInformatica.DTOs.Order;
-using VTInformatica.DTOs.Product;
-using VTInformatica.DTOs.Review;
-using VTInformatica.DTOs.SubCategory;
 using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
 using VTInformatica.Mapping;
@@ -24,38 +20,40 @@ namespace VTInformatica.Services
 
         public async Task<List<GetOrderDto>> GetAllAsync()
         {
-            // IgnoreQueryFilters: lo storico include anche i prodotti eliminati (soft delete).
-            var orders = await _context.Orders.AsNoTracking()
-                .IgnoreQueryFilters()
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .ThenInclude(p => p.ProductImages)
-                .ToListAsync();
+            var orders = await OrdersWithItems().ToListAsync();
 
             return orders.Select(OrderMapper.ToDto).ToList();
         }
 
+        public async Task<(List<GetOrderDto> Items, int Total)> GetPageAsync(PageQuery paging)
+        {
+            var total = await _context.Orders.IgnoreQueryFilters().CountAsync();
+            var orders = await OrdersWithItems()
+                .OrderBy(o => o.Id)
+                .Skip(paging.Skip)
+                .Take(paging.Take)
+                .ToListAsync();
+
+            return (orders.Select(OrderMapper.ToDto).ToList(), total);
+        }
+
+        // Letture senza tracking. IgnoreQueryFilters: lo storico include anche i prodotti eliminati (soft delete).
+        private IQueryable<Order> OrdersWithItems() => _context.Orders.AsNoTracking()
+            .IgnoreQueryFilters()
+            .Include(o => o.OrderItems)
+            .ThenInclude(oi => oi.Product)
+            .ThenInclude(p => p.ProductImages);
+
         public async Task<GetOrderDto?> GetByIdAsync(int id)
         {
-            var order = await _context.Orders.AsNoTracking()
-                .IgnoreQueryFilters()
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .ThenInclude(p => p.ProductImages)
-                .FirstOrDefaultAsync(o => o.Id == id);
+            var order = await OrdersWithItems().FirstOrDefaultAsync(o => o.Id == id);
 
-            if (order == null) return null;
-
-            return OrderMapper.ToDto(order);
+            return order == null ? null : OrderMapper.ToDto(order);
         }
 
         public async Task<List<GetOrderDto>> GetOrdersByEmailAsync(string email)
         {
-            var orders = await _context.Orders.AsNoTracking()
-                .IgnoreQueryFilters()
-                .Where(o => o.CustomerEmail == email)
-                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.ProductImages)
-                .ToListAsync();
+            var orders = await OrdersWithItems().Where(o => o.CustomerEmail == email).ToListAsync();
 
             return orders.Select(OrderMapper.ToDto).ToList();
         }

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using VTInformatica.DTOs;
 using VTInformatica.DTOs.Order;
 using VTInformatica.Errors;
 using VTInformatica.Extensions;
@@ -31,10 +32,16 @@ namespace VTInformatica.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin,Seller")]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] PageQuery paging)
         {
+            // Senza page/pageSize: lista completa. Con uno dei due: stessa lista paginata + X-Total-Count.
             // Lista vuota = 200 []. Le eccezioni le gestisce GlobalExceptionHandler.
-            return Ok(await _orderService.GetAllAsync());
+            if (!paging.IsRequested)
+                return Ok(await _orderService.GetAllAsync());
+
+            var (orders, total) = await _orderService.GetPageAsync(paging);
+            Response.Headers[PageQuery.TotalCountHeader] = total.ToString();
+            return Ok(orders);
         }
 
         [HttpGet("{id}")]
