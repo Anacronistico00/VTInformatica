@@ -496,3 +496,31 @@ della fetta account (`invalid_credentials`, `account_deactivated`,
 3. Già previsti in M3c, ora nel formato unico: Review con `ProductId`
    inesistente → 500 `internal_error`; restore di un ordine con stock
    insufficiente → 404 `not_found`.
+
+## Stato avanzamento M3c1 – carrello e ordini (aggiornato 2026-11-24)
+
+Branch `fix/m3c1-carts-orders`, test-first (piano in `docs/PIANO-M3c1.md`). Chiude
+i fuori scope M2 n. 3, 10, 11 e il punto "identità dal token" per carrello/ordini.
+
+| Voce                           | Stato  | Come                                                                                                                                                                                  |
+| ------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route con identità dal token   | Chiuso | `GET /Cart/me`, `POST /Cart/me/add`, `DELETE /Cart/me/clear`, `GET /Order/me`, `POST /Order/me/from-cart`. Le route con `{email}` restano identiche e sono `[Obsolete]` (logica condivisa) |
+| Annulla/ripristina ordine      | Chiuso | Flag ordine + stock in una transazione; `UPDATE … SET Quantity = Quantity ± n` atomici, flag con `WHERE IsDeleted = atteso` (niente doppio ripristino)                                |
+| Restore senza stock sufficiente | Chiuso | **409 `insufficient_stock`** (era 404), tutto o niente                                                                                                                                |
+| `OrderNumber` unique           | Chiuso | Indice unique, migration `UniqueOrderNumber` (colonna `nvarchar(max)` → `nvarchar(450)`, necessario per l'indice)                                                                     |
+| `CustomerComment`              | Chiuso | Corpo facoltativo `{ "customerComment": "…" }` (max 500) su `from-cart` e `me/from-cart`; senza corpo `null` (prima stringa fissa)                                                    |
+
+- Test: 164 → 188. Warning di build: 109 (invariati).
+- **FE (M4)**: passare alle route `/me`; gestire 409 `insufficient_stock` al
+  ripristino; il FE non usava `customerComment`.
+- Migration provata sul DB SQL Server locale: backup con `sqlcmd` (verificato con
+  `RESTORE VERIFYONLY`), `database update`, Down, Up. `AspNetUserRoles` = 5, ruoli
+  = 3, ordini = 5 invariati ad ogni passo; nessuna operazione su `AspNetRoles`.
+- `sqlcmd` moderno installato con `winget install sqlcmd` (non richiede ODBC Driver
+  17). Con il servizio locale si connette solo via named pipe esplicita:
+  `-S 'np:\\.\pipe\MSSQL$SQLEXPRESS\sql\query' -E -C`.
+
+### Fuori scope (non toccati)
+
+1. Collisione di `OrderNumber` (8 caratteri di GUID): ora un errore invece di un
+   duplicato silenzioso; la generazione non cambia.
