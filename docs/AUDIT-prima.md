@@ -414,3 +414,85 @@ Branch `feat/account-reactivation`, test-first. Implementa la specifica
   Mailpit/smtp4dev in sviluppo; SMTP/servizio esterno in produzione, credenziali
   via env). Stessa infrastruttura abilita "password dimenticata" per i clienti.
   README: documentare come creare il primo admin.
+
+## Stato avanzamento M3b – gestione errori (aggiornato 2026-11-24)
+
+Branch `fix/m3b-error-handling`, test-first, un controller per coppia red → fix.
+Chiude #11 e generalizza il formato `ProblemDetails` + `code` introdotto dalla
+fetta account a tutta l'API.
+
+| Voce                                               | Stato  | Come                                                                                                                                                                         |
+| -------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 11 Try/catch con 500 generico (39 in 7 controller) | Chiuso | `Errors/GlobalExceptionHandler` (`IExceptionHandler` + `AddProblemDetails` + `UseExceptionHandler`). 0 `catch (Exception)` nei controller, 0 log + rethrow nei service (erano 10) |
+| Formato degli errori                               | Chiuso | Unico: `ProblemDetails` con `code` stabile e `traceId` (`Errors/ApiProblems`), anche per validazione (`validation_failed`) e `NotFound()` senza corpo (`not_found`)           |
+| 500 senza dettagli interni                         | Chiuso | `internal_error` senza `detail`: nessuno stack, messaggio SQL o testo dell'eccezione, in Testing, Development e Production. La developer exception page non viene mai mostrata |
+| Log una sola volta                                 | Chiuso | Solo il gestore logga (Warning per gli errori di dominio, Error con stack per gli altri); il log di `ExceptionHandlerMiddleware` è silenziato in Serilog                     |
+| Carrello vuoto al checkout                         | Chiuso | 409 `cart_empty` (era 500). Test di caratterizzazione invertito                                                                                                              |
+| Sottocategoria/produttore inesistenti nel prodotto | Chiuso | 400 `subcategory_not_found` / `manufacturer_not_found` in create e update (erano 500)                                                                                        |
+| Delete con elementi collegati                      | Chiuso | 409 `resource_in_use` per Category, SubCategory, Manufacturer (erano 500). Verifica esplicita nei service, indipendente dal provider                                        |
+| Liste vuote = 404                                  | Chiuso | 200 `[]`: search, `GET /Product`, prodotti per categoria/sottocategoria/produttore, `GET /Order`, `/Order/user/{email}`                                                      |
+| Avvio fallito con exit code 0                      | Chiuso | `Log.Fatal` con lo stack ed exit code 1. `HostAbortedException` (strumenti EF) non più loggata come errore                                                                   |
+
+**Comportamento voluto – 409 `resource_in_use`**: una categoria, sottocategoria
+o produttore non si può eliminare se ha prodotti collegati, **compresi quelli
+eliminati** (soft delete): restano nel DB perché mantengono lo storico ordini.
+Il `detail` della risposta lo dice esplicitamente.
+
+**Codici** (`code`): `internal_error`, `validation_failed`, `not_found`,
+`bad_request`, `unauthorized`, `forbidden`, `conflict` (generici per status);
+`product_not_found`, `insufficient_stock`, `stock_conflict`, `cart_empty`,
+`subcategory_not_found`, `manufacturer_not_found`, `resource_in_use`,
+`invalid_quantity`, `email_change_not_allowed`, `email_already_registered`,
+`weak_password`, `registration_failed`, `already_authenticated`, più quelli
+della fetta account (`invalid_credentials`, `account_deactivated`,
+`account_suspended`, `cannot_suspend_self`, `cannot_suspend_admin`,
+`not_suspended`). Gli status dei casi già gestiti in M2/M3a non cambiano.
+
+- Test: 111 → 164 (cartella `ErrorHandling/`). Warning di build: 109
+  (invariati).
+- Le politiche di Review di M1 restano nel controller (update altrui → 403,
+  delete altrui → 404): sono gli unici due catch rimasti.
+
+### Impatto FE (M4)
+
+- Il FE oggi non legge mai il corpo degli errori (in ogni ramo `!response.ok`
+  lancia un `Error` con testo fisso), quindi il nuovo formato non lo rompe. Per
+  messaggi mirati può leggere `code` dal `ProblemDetails`.
+- **Le liste vuote ora rispondono 200 `[]`** (prima 404, che il FE mostrava
+  come errore): search, catalogo, prodotti per categoria/sottocategoria/
+  produttore, ordini.
+- **`cart_empty` è 409** al checkout (prima 500).
+
+### Limiti noti
+
+- **Ramo SQL Server 547 non testato**: la rete di sicurezza del gestore
+  (`DbUpdateException` con errore 547 durante una delete → 409
+  `resource_in_use`, riconosciuta dal numero e non dal testo) non si riproduce
+  su SQLite. La coprirà il branch Testcontainers su SQL Server, insieme al race
+  sullo stock. Gli altri 547 (insert/update con riferimenti inesistenti) non
+  sono "risorsa in uso" e restano 500.
+- **Email nei log**: il gestore logga metodo e `Request.Path`, e alcune route
+  contengono ancora l'email (`/Cart/{email}`, `/Order/user/{email}`). Non è un
+  problema nuovo (email nell'URL, già previsto per M4 e per la migrazione da
+  email a id), ma il gestore centralizzato lo rende sistematico: ogni errore su
+  quelle route scrive l'email nei log.
+- In `ProductController` (`GetAll`, `GetProduct`, `SearchProducts`) è rimasto il
+  blocco `{ }` che apriva il `try`, per non reindentare il mapping: sparisce con
+  la centralizzazione dei mapping (#13, M3d). Il controllo della query vuota in
+  `SearchProducts` è difensivo: la validazione risponde già 400
+  `validation_failed`.
+
+### Fuori scope emersi in M3b (non toccati)
+
+1. **SubCategory con `categoryId` inesistente** in create/update: violazione FK →
+   500 `internal_error`. Proposta: verifica nel service → 400
+   `category_not_found`, come per prodotto e produttore.
+2. **Integrità categoria/prodotto**: `Product` ha sia `SubCategoryId` sia
+   `CategoryId` (dato duplicato). Spostare una SubCategory in un'altra Category
+   lascia i prodotti con il vecchio `CategoryId`. Proposta: rimuovere
+   `Product.CategoryId` e ricavarla dalla SubCategory (migration + query di
+   filtro per categoria); in alternativa aggiornare i prodotti allo
+   spostamento. Da pianificare in M3c/M3d.
+3. Già previsti in M3c, ora nel formato unico: Review con `ProductId`
+   inesistente → 500 `internal_error`; restore di un ordine con stock
+   insufficiente → 404 `not_found`.
