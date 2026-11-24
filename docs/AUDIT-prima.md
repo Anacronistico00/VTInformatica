@@ -266,3 +266,77 @@ Branch `fix/m3a1-product-integrity`, test-first. Chiude i fuori scope M2 n. 1,
 1. `GET /Product/search` risponde 404 quando non trova nulla, invece di una
    lista vuota.
 2. Ripristino di un prodotto eliminato: nessun endpoint.
+
+## Stato avanzamento M3a2 (aggiornato 2026-11-24)
+
+Branch `fix/m3a2-account-integrity`, test-first. Chiude #9 e due finding emersi
+in M1.
+
+| Voce                                        | Stato  | Come                                                                                                                                       |
+| ------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 9 Register su email disattivata             | Chiuso | Stessa risposta 400 "Email già registrata" dell'email attiva: nessuna sovrascrittura del profilo, lo stato dell'account non viene rivelato |
+| 9 `IsActive` dal client                     | Chiuso | Rimosso da `RegisterRequestDto`, deciso dal server (campo eventualmente inviato dal FE ignorato)                                           |
+| UpdateUser cambia Email                     | Chiuso | Email opzionale e non modificabile: se diversa da quella attuale → 400. Carrello e ordini restano raggiungibili                            |
+| Token validi per utenti disattivati         | Chiuso | `JwtBearerEvents.OnTokenValidated`: utente inesistente o disattivato → 401, effetto immediato                                              |
+
+- Test: 70 → 77. Warning di build: 110 → 109.
+- I nomi mancanti in UpdateUser erano già rifiutati (stringhe non-nullable con
+  `<Nullable>enable</Nullable>`): il finding "DTO senza validazione" valeva solo
+  per l'email, ora opzionale.
+- Il controllo del token fa una lettura dell'utente per ogni richiesta
+  autenticata.
+- **FE (M4)**: gestire 401 su qualsiasi chiamata autenticata (account
+  disattivato) con logout; non inviare più `IsActive` nella registrazione.
+
+### Prossima fetta: disattivazione, ban e riattivazione (`feat/account-reactivation`)
+
+Solo documentata, da pianificare dopo M3a2. Oggi esiste solo la disattivazione
+da Admin (`PUT /Account/DeleteUserByEmail/{email}`), senza motivo né modo di
+tornare indietro.
+
+- **Nuovi campi su `ApplicationUser`** (migration): `DeactivationReason`
+  (User/Admin), `DeactivationNote` (testo, max 500; obbligatorio per il ban,
+  facoltativo per la cancellazione del cliente), `DeactivatedAt` (UTC).
+  Azzerati alla riattivazione.
+- **`DELETE /Account/{id}`** del cliente su se stesso → Reason=User, nota
+  facoltativa. DELETE di un admin su un altro utente: da decidere nel piano
+  (proposta: rifiutato, usare `/ban`).
+- **Ban**: `PUT /Account/{id}/ban {note}` e `PUT /Account/{id}/unban`, solo
+  Admin. Effetto immediato grazie al controllo del token di M3a2. Un admin non
+  può bannare se stesso.
+- **Login con password corretta**: Reason=User → 403 `account_deactivated`;
+  Reason=Admin → 403 `account_suspended` (messaggio generico, la nota non viene
+  mostrata al cliente). Password errata o email inesistente → 401 generico.
+- **`POST /Account/reactivate {email, password}`**: riverifica la password con
+  lockout Identity; solo Reason=User, altrimenti 403 `account_suspended`.
+  Riattiva e restituisce il token.
+- **FE (M4)**: pagina di riattivazione con conferma e pagina di benvenuto;
+  messaggio di negazione per account sospeso; campo motivo facoltativo nella
+  cancellazione account; nota obbligatoria nel ban admin.
+
+Decisioni prese (2026-11-24):
+
+1. **403 solo dopo la verifica della password.** Oggi `Login` risponde 401 a un
+   utente inattivo prima di controllare la password; `account_deactivated` /
+   `account_suspended` vanno restituiti solo con password corretta, altrimenti
+   401 generico (nessuna enumerazione dello stato dell'account).
+2. **`PUT /Account/DeleteUserByEmail/{email}` sostituito da
+   `PUT /Account/{id}/ban`.**
+3. **Utenti già disattivati** al momento della migration →
+   `DeactivationReason = Admin` (l'unico modo di disattivare esistente finora).
+
+## Fuori scope per M3d emersi dallo smoke test di M3a1 (non toccati)
+
+1. **`manufacturer.manufacturerId` sempre 0** nella risposta di `GET /Product`:
+   il DTO annidato `ManufacturerDto.ManufacturerId` non viene mai valorizzato dal
+   mapping (es. `ProductController.cs`), mentre `product.manufacturerId` è
+   corretto. Rientra nella centralizzazione dei mapping (#13).
+2. **Nome prodotto con spazi iniziali**: il prodotto 18 è
+   `"    Intel Core i9-14900K (3,2 GHz / 5,8 GHz)"`. Il dato arriva da
+   `DatabaseScript.sql:521`; in più Create/Update prodotto non fanno Trim su
+   `Name` (e `Description`), quindi lo stesso problema può arrivare dall'API.
+   Fix: Trim in create/update e correzione del dato esistente.
+3. **Refuso "Perferiche"**: la categoria 2 è `N'Perferiche'` in
+   `DatabaseScript.sql:422` e nei DB creati da lì; il seed (`HasData`) dice
+   già "Periferiche". Correzione del dato con uno script o da admin, senza
+   migration.
