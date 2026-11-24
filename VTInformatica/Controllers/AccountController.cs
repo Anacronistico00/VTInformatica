@@ -196,15 +196,34 @@ namespace VTInformatica.Controllers
             return success ? NoContent() : NotFound();
         }
 
-        [HttpPut("DeleteUserByEmail/{email}")]
+        // Sostituisce PUT /Account/DeleteUserByEmail/{email}. Effetto immediato grazie al controllo del token.
+        [HttpPut("{id}/suspend")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteUser(string email)
+        public async Task<IActionResult> Suspend(string id, [FromBody] SuspendUserDto dto)
         {
-            var success = await _accountService.DeleteUserAsync(email);
-            if (!success)
-                return NotFound(new { message = "Utente non trovato o errore durante la cancellazione." });
+            if (id == User.FindFirstValue(ClaimTypes.NameIdentifier))
+                return AccountProblem(StatusCodes.Status400BadRequest, "Un admin non può sospendere se stesso.", "cannot_suspend_self");
 
-            return Ok(new { message = "Utente eliminato con successo." });
+            return await _accountService.SuspendAsync(id, dto.Note!) switch
+            {
+                AccountStatusChangeResult.NotFound => NotFound(),
+                AccountStatusChangeResult.CannotSuspendAdmin =>
+                    AccountProblem(StatusCodes.Status409Conflict, "Non si può sospendere un admin.", "cannot_suspend_admin"),
+                _ => NoContent()
+            };
+        }
+
+        [HttpPut("{id}/unsuspend")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Unsuspend(string id)
+        {
+            return await _accountService.UnsuspendAsync(id) switch
+            {
+                AccountStatusChangeResult.NotFound => NotFound(),
+                AccountStatusChangeResult.NotSuspended =>
+                    AccountProblem(StatusCodes.Status409Conflict, "L'utente non è sospeso.", "not_suspended"),
+                _ => NoContent()
+            };
         }
 
         // ---- Errori dell'autenticazione: ProblemDetails con un "code" stabile per il FE ----
