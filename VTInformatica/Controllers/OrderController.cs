@@ -117,7 +117,7 @@ namespace VTInformatica.Controllers
         [Authorize]
         public async Task<IActionResult> RestoreOrder(int id)
         {
-            // Restore con stock insufficiente risponde ancora 404 (fuori scope M2 n. 3, previsto in M3c).
+            // Stock insufficiente: 409 insufficient_stock (InsufficientStockException, GlobalExceptionHandler).
             if (!await CanManageOrderAsync(id) || !await _orderService.RestoreAsync(id))
                 return this.ApiProblem(StatusCodes.Status404NotFound, "not_found", "Ordine non trovato o già attivo.");
 
