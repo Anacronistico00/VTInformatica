@@ -27,11 +27,15 @@ namespace VTInformatica.Services
 
                 result.Add(new GetUserDto
                 {
+                    Id = user.Id,
                     Email = user.Email,
                     FullName = $"{user.FirstName} {user.LastName}",
                     BirthDate = user.BirthDate,
                     Role = role,
-                    IsActive = user.IsActive
+                    IsActive = user.IsActive,
+                    DeactivationReason = user.DeactivationReason,
+                    DeactivationNote = user.DeactivationNote,
+                    DeactivatedAt = user.DeactivatedAt
                 });
             }
 
