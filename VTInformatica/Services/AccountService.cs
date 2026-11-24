@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using VTInformatica.DTOs.Account;
+using VTInformatica.Exceptions;
 using VTInformatica.Models.Auth;
 
 namespace VTInformatica.Services
@@ -43,9 +44,13 @@ namespace VTInformatica.Services
             if (user == null)
                 return false;
 
+            // Carrello e ordini usano l'email come chiave: cambiarla qui romperebbe il legame
+            // (e lascerebbe UserName disallineato). Il cambio email richiede un flusso dedicato.
+            if (dto.Email != null && !string.Equals(dto.Email, user.Email, StringComparison.OrdinalIgnoreCase))
+                throw new EmailChangeNotAllowedException();
+
             user.FirstName = dto.FirstName;
             user.LastName = dto.LastName;
-            user.Email = dto.Email;
             user.BirthDate = dto.BirthDate;
 
             var result = await _userManager.UpdateAsync(user);
