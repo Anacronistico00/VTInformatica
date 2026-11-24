@@ -54,7 +54,6 @@ namespace VTInformatica.Services
                 .IgnoreQueryFilters()
                 .Where(o => o.CustomerEmail == email)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Manufacturer)
-                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Category)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.SubCategory)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.ProductImages)
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Reviews)

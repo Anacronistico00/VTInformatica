@@ -27,10 +27,11 @@ namespace VTInformatica.Mapping
             FullDescription = p.FullDescription,
             Price = p.Price,
             Quantity = p.Quantity,
-            Category = p.Category != null ? new CategoryDto()
+            // Categoria derivata dalla sottocategoria.
+            Category = p.SubCategory?.Category != null ? new CategoryDto()
             {
-                Id = p.Category.Id,
-                Name = p.Category.Name,
+                Id = p.SubCategory.Category.Id,
+                Name = p.SubCategory.Category.Name,
             } : null,
             SubCategory = ToSubCategoryDto(p.SubCategory),
             ProductImages = ToImageDtos(p),
@@ -60,10 +61,10 @@ namespace VTInformatica.Mapping
             FullDescription = p.FullDescription,
             Price = p.Price,
             Quantity = p.Quantity,
-            Category = p.Category != null ? new GetCategoryDto
+            Category = p.SubCategory?.Category != null ? new GetCategoryDto
             {
-                Id = p.Category.Id,
-                Name = p.Category.Name,
+                Id = p.SubCategory.Category.Id,
+                Name = p.SubCategory.Category.Name,
             } : null,
             SubCategory = ToSubCategoryDto(p.SubCategory),
             ProductImages = ToImageDtos(p)
