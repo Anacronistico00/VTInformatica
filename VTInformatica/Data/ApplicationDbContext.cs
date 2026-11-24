@@ -40,9 +40,11 @@ namespace VTInformatica.Data
             modelBuilder.Entity<ApplicationUserRole>().HasOne(p => p.User).WithMany(p => p.ApplicationUserRoles).HasForeignKey(p => p.UserId).IsRequired(true);
             modelBuilder.Entity<ApplicationUserRole>().HasOne(p => p.Role).WithMany(p => p.ApplicationUserRoles).HasForeignKey(p => p.RoleId).IsRequired(true);
 
-            var adminId = Guid.NewGuid().ToString();
-            var sellerId = Guid.NewGuid().ToString();
-            var customerId = Guid.NewGuid().ToString();
+            // GUID fissi, uguali a quelli già nei DB esistenti (migration 20250508102202_Update,
+            // DatabaseScript.sql). Con Guid.NewGuid() ogni migration cancellava e reinseriva i ruoli.
+            const string adminId = "98b4e551-a53d-40fc-9fa4-29d6dd582481";
+            const string sellerId = "9ab947f2-b737-46bf-a388-2f8962573a2b";
+            const string customerId = "bd7ef491-0f1b-4b8c-9c80-340e14cfac9b";
 
             modelBuilder.Entity<ApplicationRole>().HasData(
                 new ApplicationRole
