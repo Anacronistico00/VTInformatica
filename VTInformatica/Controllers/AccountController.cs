@@ -10,7 +10,6 @@ using System.Security.Claims;
 using System.Text;
 using VTInformatica.DTOs.Account;
 using VTInformatica.Errors;
-using VTInformatica.Exceptions;
 using VTInformatica.Models.Auth;
 using VTInformatica.Services;
 using VTInformatica.Settings;
@@ -41,7 +40,7 @@ namespace VTInformatica.Controllers
         {
             if (User.Identity.IsAuthenticated)
             {
-                return BadRequest(new { message = "Sei già loggato. Non puoi registrarti di nuovo." });
+                return this.ApiProblem(StatusCodes.Status400BadRequest, "already_authenticated", "Sei già loggato. Non puoi registrarti di nuovo.");
             }
 
             // AUDIT #9: anche un utente disattivato è "già registrato". Prima la registrazione ne
@@ -50,7 +49,7 @@ namespace VTInformatica.Controllers
             var existingUser = await _userManager.FindByEmailAsync(registerRequestDto.Email);
             if (existingUser != null)
             {
-                return BadRequest(new { message = "Email già registrata" });
+                return this.ApiProblem(StatusCodes.Status400BadRequest, "email_already_registered", "Email già registrata");
             }
 
             var newUser = new ApplicationUser()
@@ -68,16 +67,16 @@ namespace VTInformatica.Controllers
             if (!passwordValidationResult.Succeeded)
             {
                 // Se la password non è valida, non crea l'utente e restituisce un errore
-                return BadRequest(new
-                {
-                    message = "Password must include at least one uppercase letter, one lowercase letter, one number, and one special character (-_@!%)."
-                });
+                return this.ApiProblem(StatusCodes.Status400BadRequest, "weak_password",
+                    "Password must include at least one uppercase letter, one lowercase letter, one number, and one special character (-_@!%).");
             }
 
             var result = await _userManager.CreateAsync(newUser, registerRequestDto.Password);
             if (!result.Succeeded)
             {
-                return BadRequest(new { message = "User registration failed.", errors = result.Errors.Select(e => e.Description) });
+                var problem = this.ApiProblem(StatusCodes.Status400BadRequest, "registration_failed", "Registrazione non riuscita.");
+                ((ProblemDetails)problem.Value!).Extensions["errors"] = result.Errors.Select(e => e.Description).ToList();
+                return problem;
             }
 
             await _userManager.AddToRoleAsync(newUser, "Customer");
@@ -92,7 +91,7 @@ namespace VTInformatica.Controllers
 
             if (User.Identity.IsAuthenticated)
             {
-                return BadRequest(new { message = "Sei già loggato." });
+                return this.ApiProblem(StatusCodes.Status400BadRequest, "already_authenticated", "Sei già loggato.");
             }
 
             var user = await _userManager.FindByEmailAsync(loginRequestDto.Email);
@@ -202,18 +201,10 @@ namespace VTInformatica.Controllers
             if (id != User.FindFirstValue(ClaimTypes.NameIdentifier) && !User.IsInRole("Admin"))
                 return Forbid();
 
-            bool success;
-            try
-            {
-                success = await _accountService.UpdateUserAsync(id, dto);
-            }
-            catch (EmailChangeNotAllowedException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-
+            // Cambio email: EmailChangeNotAllowedException → 400 email_change_not_allowed (GlobalExceptionHandler).
+            var success = await _accountService.UpdateUserAsync(id, dto);
             if (!success)
-                return NotFound(new { message = "Utente non trovato o errore nell'aggiornamento." });
+                return this.ApiProblem(StatusCodes.Status404NotFound, "not_found", "Utente non trovato o errore nell'aggiornamento.");
 
             return Ok(new { message = "Utente aggiornato con successo." });
         }
