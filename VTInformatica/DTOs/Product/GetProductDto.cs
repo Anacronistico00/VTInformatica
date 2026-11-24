@@ -19,7 +19,7 @@ namespace VTInformatica.DTOs.Product
         public int ManufacturerId { get; set; }
 
         [ForeignKey(nameof(ManufacturerId))]
-        public CreateManufacturerDto? Manufacturer { get; set; }
+        public ManufacturerDto? Manufacturer { get; set; }
 
         [Required]
         public string Description { get; set; }

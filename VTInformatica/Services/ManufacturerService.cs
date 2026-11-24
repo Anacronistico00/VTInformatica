@@ -3,6 +3,7 @@ using VTInformatica.Data;
 using VTInformatica.DTOs.Manufacturer;
 using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
+using VTInformatica.Mapping;
 using VTInformatica.Models;
 
 namespace VTInformatica.Services
@@ -19,12 +20,7 @@ namespace VTInformatica.Services
         public async Task<GetManufacturerResponseDto> GetAllAsync()
         {
             var manufacturers = await _context.Manufacturers
-                .Select(m => new ManufacturerDto
-                {
-                    ManufacturerId = m.ManufacturerId,
-                    ManufacturerName = m.ManufacturerName,
-                    ManufacturerLogo = m.ManufacturerLogo
-                }).ToListAsync();
+                .Select(ManufacturerMapper.Projection).ToListAsync();
 
             return new GetManufacturerResponseDto
             {
@@ -35,16 +31,10 @@ namespace VTInformatica.Services
 
         public async Task<ManufacturerDto?> GetByIdAsync(int id)
         {
-            var manufacturer = await _context.Manufacturers
-                .FirstOrDefaultAsync(m => m.ManufacturerId == id);
-            if (manufacturer == null) return null;
-
-            return new ManufacturerDto
-            {
-                ManufacturerId = manufacturer.ManufacturerId,
-                ManufacturerName = manufacturer.ManufacturerName,
-                ManufacturerLogo = manufacturer.ManufacturerLogo
-            };
+            return await _context.Manufacturers
+                .Where(m => m.ManufacturerId == id)
+                .Select(ManufacturerMapper.Projection)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<ManufacturerDto> CreateAsync(CreateManufacturerDto dto)
@@ -59,12 +49,7 @@ namespace VTInformatica.Services
             _context.Manufacturers.Add(manufacturer);
             await _context.SaveChangesAsync();
 
-            return new ManufacturerDto
-            {
-                ManufacturerId = manufacturer.ManufacturerId,
-                ManufacturerName = manufacturer.ManufacturerName,
-                ManufacturerLogo = manufacturer.ManufacturerLogo
-            };
+            return ManufacturerMapper.ToDto(manufacturer);
         }
 
         public async Task<bool> UpdateAsync(int id, ManufacturerDto dto)

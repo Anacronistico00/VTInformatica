@@ -1,15 +1,11 @@
 using VTInformatica.DTOs.Category;
-using VTInformatica.DTOs.Manufacturer;
 using VTInformatica.DTOs.Product;
 using VTInformatica.DTOs.Review;
-using VTInformatica.DTOs.SubCategory;
 using VTInformatica.Models;
 
 namespace VTInformatica.Mapping
 {
-    /// <summary>
-    /// Unico punto di mapping Product → DTO (prima copiato 5 volte tra ProductController e ProductService).
-    /// </summary>
+    /// <summary>Unico punto di mapping Product → DTO.</summary>
     public static class ProductMapper
     {
         // Risposta di GET /Product, /Product/{id} e /Product/search.
@@ -17,24 +13,20 @@ namespace VTInformatica.Mapping
         {
             Id = p.Id,
             ManufacturerId = p.ManufacturerId,
-            Manufacturer = p.Manufacturer != null ? new ManufacturerDto()
-            {
-                ManufacturerName = p.Manufacturer.ManufacturerName,
-                ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
-            } : null,
+            Manufacturer = p.Manufacturer != null ? ManufacturerMapper.ToDto(p.Manufacturer) : null,
             Name = p.Name,
             Description = p.Description,
             FullDescription = p.FullDescription,
             Price = p.Price,
             Quantity = p.Quantity,
-            // Categoria derivata dalla sottocategoria.
             Category = p.SubCategory?.Category != null ? new CategoryDto()
             {
                 Id = p.SubCategory.Category.Id,
                 Name = p.SubCategory.Category.Name,
             } : null,
-            SubCategory = ToSubCategoryDto(p.SubCategory),
+            SubCategory = p.SubCategory != null ? SubCategoryMapper.ToDto(p.SubCategory) : null,
             ProductImages = ToImageDtos(p),
+            // Le review pubbliche non espongono l'email dell'autore.
             Reviews = p.Reviews != null
                 ? p.Reviews.Select(r => new ProductReviewDto
                 {
@@ -50,11 +42,7 @@ namespace VTInformatica.Mapping
         public static GetProductDto ToGetProductDto(Product p) => new GetProductDto
         {
             ManufacturerId = p.ManufacturerId,
-            Manufacturer = p.Manufacturer != null ? new CreateManufacturerDto()
-            {
-                ManufacturerName = p.Manufacturer.ManufacturerName,
-                ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
-            } : null,
+            Manufacturer = p.Manufacturer != null ? ManufacturerMapper.ToDto(p.Manufacturer) : null,
             Id = p.Id,
             Name = p.Name,
             Description = p.Description,
@@ -66,16 +54,9 @@ namespace VTInformatica.Mapping
                 Id = p.SubCategory.Category.Id,
                 Name = p.SubCategory.Category.Name,
             } : null,
-            SubCategory = ToSubCategoryDto(p.SubCategory),
+            SubCategory = p.SubCategory != null ? SubCategoryMapper.ToDto(p.SubCategory) : null,
             ProductImages = ToImageDtos(p)
         };
-
-        private static SubCategoryDto? ToSubCategoryDto(SubCategory? sc) => sc != null ? new SubCategoryDto
-        {
-            Id = sc.Id,
-            Name = sc.Name,
-            CategoryId = sc.CategoryId,
-        } : null;
 
         private static List<ProductImageDto> ToImageDtos(Product p) =>
             p.ProductImages?.Select(img => new ProductImageDto { ImageUrl = img.ImageUrl }).ToList()

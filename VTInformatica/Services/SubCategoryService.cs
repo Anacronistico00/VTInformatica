@@ -3,6 +3,7 @@ using VTInformatica.Data;
 using VTInformatica.DTOs.SubCategory;
 using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
+using VTInformatica.Mapping;
 using VTInformatica.Models;
 
 namespace VTInformatica.Services
@@ -19,32 +20,17 @@ namespace VTInformatica.Services
 
         public async Task<List<SubCategoryDto>> GetAllAsync()
         {
-            var subCategories = await _context.SubCategories
-                .Include(sc => sc.Category)
-                .Select(sc => new SubCategoryDto
-                {
-                    Id = sc.Id,
-                    Name = sc.Name,
-                    CategoryId = sc.CategoryId
-                 })
-                 .ToListAsync();
-            return subCategories;
+            return await _context.SubCategories
+                .Select(SubCategoryMapper.Projection)
+                .ToListAsync();
         }
 
         public async Task<SubCategoryDto> GetByIdAsync(int id)
         {
-            var subCategory = await _context.SubCategories
-                .Include(sc => sc.Category)
+            return await _context.SubCategories
                 .Where(sc => sc.Id == id)
-                .Select(sc => new SubCategoryDto
-                {
-                    Id = sc.Id,
-                    Name = sc.Name,
-                    CategoryId = sc.CategoryId
-                })
+                .Select(SubCategoryMapper.Projection)
                 .FirstOrDefaultAsync();
-
-            return subCategory;
         }
 
         public async Task<SubCategoryDto> CreateAsync(SubCategoryDto dto)
