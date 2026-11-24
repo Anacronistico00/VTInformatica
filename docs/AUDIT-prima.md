@@ -627,3 +627,14 @@ minori di #15 che erano in M3; i refactor puri sono coperti dai test esistenti.
    `dotnet ef database update`.
 3. `docs/sql/correggi-dati-catalogo.sql` sui DB creati da `DatabaseScript.sql`
    (idempotente).
+
+## Modifiche BE richieste da M4 (FE) – aggiornato 2026-11-24
+
+- **CORS `X-Total-Count`**: già esposto da M3d (`WithExposedHeaders`, test
+  `TotalCountHeader_IsExposedToTheBrowser` con `Origin`). Nessuna fetta
+  `fix/cors-expose-total-count` necessaria.
+- **`feat/review-mine`** (piano in `docs/PIANO-review-mine.md`): `GET /Review/me`
+  `[Authorize]` restituisce le recensioni dell'utente del token (`reviewId`,
+  `productId`, `reviewRating`, `reviewComment`, `createdAt`), dalla più recente,
+  senza email. Serve al FE per offrire modifica ed eliminazione solo sulle
+  proprie. Test-first: 240 → 243. Warning: 0.
