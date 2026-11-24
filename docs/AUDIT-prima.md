@@ -557,3 +557,45 @@ email.
    solo validazione di Identity.
 2. Se un DB di produzione ha email duplicate, dopo `RequireUniqueEmail` l'update
    di quegli utenti fallisce: verificare prima del deploy.
+
+## Stato avanzamento M3d – pulizia e performance (aggiornato 2026-11-24)
+
+Branch `fix/m3d-cleanup` (piano in `docs/PIANO-M3d.md`). Chiude #12, #13 e i
+minori di #15 che erano in M3; i refactor puri sono coperti dai test esistenti.
+
+| Voce                                    | Stato  | Come                                                                                                                                                                                      |
+| --------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 13 Mapping duplicato                    | Chiuso | `Mapping/*` (Product, Order, Cart, Category, SubCategory, Manufacturer, Review): un solo punto per risorsa. Dove il mapping sta in una query è un'`Expression` (tradotta in SQL)           |
+| `manufacturer.manufacturerId` sempre 0  | Chiuso | Test rosso → `ProductMapper`. `GET /Product/{category,subcategory,manufacturer}/…` ora usano `ManufacturerDto` (campo `manufacturerId` aggiunto: cambio additivo)                         |
+| DTO morti                               | Chiuso | Rimossi `UserDto`, `CartDto`, `CreateOrderDto`, `OrderDto`, `OrderItemDto`, `AddSubCategoryDto`                                                                                           |
+| 12 Query                                | Chiuso | `AsNoTracking` su tutte le letture (verificato sul change tracker); ordini per email: 5 include → 1; prodotti senza `Reviews.User`                                                        |
+| Paginazione                             | Chiuso | `GET /Product` e `GET /Order`: `page`/`pageSize` opzionali (default 20, max 100), stesso array ordinato per id + header `X-Total-Count` (esposto via CORS). Senza parametri risposta invariata; valori non validi → 400 `validation_failed` |
+| `Cart.TotalPrice`                       | Chiuso | Colonna rimossa, totale calcolato dalle righe (anche in cancellazione prodotto). Migration `RemoveCartTotalPrice` (Down ripopola il totale)                                               |
+| Getter carrello che scrive              | Chiuso | `GetCartByEmailAsync` non aggiunge più un `Cart` al context (carrello vuoto per chi non ne ha); verifica "l'articolo è mio" con `Any` invece di caricare il carrello                       |
+| 15 Minori                               | Chiuso | `DateTime.UtcNow` nella scadenza del token (nessun test: stesso istante), titolo Swagger "VTInformatica API" (con test), `Log/` già coperta da `.gitignore` (`[Ll]og/`)                    |
+| Trim su `Name`/`Description`            | Chiuso | Create/update prodotto (`FullDescription` incluso). Dati esistenti: `docs/sql/correggi-dati-catalogo.sql` (nome con spazi, "Perferiche"), da eseguire a mano                              |
+| Avvisi di build                         | Chiuso | **109 → 0** senza disattivare i controlli: stringhe/collezioni con valore iniziale, `null!` solo per le proprietà di navigazione EF e per i corpi di richiesta (un campo mancante resta un 400) |
+| Commenti storici                        | Chiuso | Commit `chore: remove historical comments` (solo commenti); regola aggiunta a `CLAUDE.md`                                                                                                  |
+
+- Test: 164 (inizio M3c) → **240**. Warning di build: **109 → 0**.
+- **FE (M4)**: `X-Total-Count` per paginare; `manufacturerId` ora presente nei
+  prodotti per categoria/sottocategoria/produttore; `GET /Cart/me` non risponde
+  mai 404.
+- Migration provata sul DB SQL Server locale con `sqlcmd` (backup verificato,
+  `database update`, Down, Up): `AspNetUserRoles` = 5, ruoli = 3 invariati,
+  nessuna operazione su `AspNetRoles`. **Limite**: il DB locale non ha righe in
+  `CartItems`, quindi il ripopolamento del totale nel Down è stato eseguito solo
+  su carrelli vuoti.
+
+### Fuori scope (non toccati)
+
+1. `AccountService` senza interfaccia; messaggi misti IT/EN.
+2. Chiave `SignInRequireConfirmedAccount` in `appsettings.json` non letta da
+   `Program.cs` (letta `RequireConfirmedAccount`).
+3. `DatabaseScript.sql` (UTF-16) contiene ancora i dati con spazi e "Perferiche":
+   non modificato, correggere i DB con lo script in `docs/sql/`.
+4. `ProductService.UpdateAsync` risponde 404 quando le immagini del prodotto sono
+   nulle o la lista nel corpo è vuota (condizione preesistente, resa solo
+   null-safe).
+5. Nessuna paginazione/ordinamento su altri elenchi (categorie, produttori,
+   review).
