@@ -67,3 +67,5 @@
   di milestone
 - Mai push o merge diretti su `master` o `develop`
 - La CI (`build-and-test`) deve essere verde prima di ogni merge
+- Non aggiungere mai Co-Authored-By, 'Generated with Claude Code' né link di
+  sessione Claude a commit, PR o file.
