@@ -96,6 +96,9 @@ try
         options.Password.RequireUppercase =
             builder.Configuration.GetSection("Identity").GetValue<bool>("RequireUppercase");
 
+        // Carrello e ordini usano l'email come chiave: un'email = un utente.
+        options.User.RequireUniqueEmail = true;
+
         // Lockout: usato da login e reactivate (CheckPasswordSignInAsync con lockoutOnFailure).
         options.Lockout.AllowedForNewUsers = true;
         options.Lockout.MaxFailedAccessAttempts =
