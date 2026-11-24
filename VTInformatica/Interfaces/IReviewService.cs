@@ -7,6 +7,7 @@ namespace VTInformatica.Interfaces
         Task<List<GetReviewDto>> GetAllAsync();
         Task<GetReviewDto?> GetByIdAsync(int id);
         Task<List<GetReviewDto>> GetByEmailAsync(string email);
+        Task<List<MyReviewDto>> GetMineAsync(string userId);
         Task<GetReviewDto> CreateAsync(CreateReviewDto dto);
         Task<bool> UpdateAsync(int id, UpdateReviewDto dto, string userId);
         Task<bool> DeleteAsync(int id, string userId);
