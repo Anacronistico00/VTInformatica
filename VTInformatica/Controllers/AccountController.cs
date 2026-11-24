@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -178,6 +179,21 @@ namespace VTInformatica.Controllers
                 return NotFound(new { message = "Utente non trovato o errore nell'aggiornamento." });
 
             return Ok(new { message = "Utente aggiornato con successo." });
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<IActionResult> DeactivateSelf(
+            string id,
+            [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] DeactivateAccountDto? dto)
+        {
+            // Solo il proprio account (id dal token): un admin disattiva gli altri con /ban.
+            // Protezione minima: gli Admin non si disattivano via API.
+            if (id != User.FindFirstValue(ClaimTypes.NameIdentifier) || User.IsInRole("Admin"))
+                return Forbid();
+
+            var success = await _accountService.DeactivateSelfAsync(id, dto?.Note);
+            return success ? NoContent() : NotFound();
         }
 
         [HttpPut("DeleteUserByEmail/{email}")]
