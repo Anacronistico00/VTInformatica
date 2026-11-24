@@ -7,6 +7,7 @@ using Serilog;
 using System.Security.Claims;
 using System.Text;
 using VTInformatica.Data;
+using VTInformatica.Errors;
 using VTInformatica.Interfaces;
 using VTInformatica.Models.Auth;
 using VTInformatica.Services;
@@ -16,6 +17,9 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
     .MinimumLevel.Override("Syster", Serilog.Events.LogEventLevel.Warning)
+    // Le eccezioni le logga GlobalExceptionHandler (una volta sola): il middleware di ASP.NET Core
+    // le registrerebbe di nuovo come Error, anche quelle di dominio.
+    .MinimumLevel.Override("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", Serilog.Events.LogEventLevel.Fatal)
     .Enrich.FromLogContext()
     .WriteTo.Async(a => a.File("Log/Log_txt", rollingInterval: RollingInterval.Day))
     .WriteTo.Async(a => a.Console())
@@ -27,6 +31,10 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
     builder.Services.AddControllers();
+
+    // AUDIT #11: errori in un unico formato (ProblemDetails + code + traceId) e un unico gestore.
+    builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ApiProblems.Customize);
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
@@ -164,6 +172,12 @@ try
     builder.Host.UseSerilog();
 
     var app = builder.Build();
+
+    // Primo middleware della pipeline: avvolge tutto il resto. In Development WebApplication
+    // aggiunge da sé la developer exception page *fuori* da questo middleware: il gestore
+    // intercetta ogni eccezione prima, quindi la pagina (con lo stack) non viene mai mostrata.
+    // Verificato da GlobalErrorHandlerTests in Testing, Development e Production.
+    app.UseExceptionHandler();
 
     // Solo le origini configurate in Cors:AllowedOrigins (audit #10).
     var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
