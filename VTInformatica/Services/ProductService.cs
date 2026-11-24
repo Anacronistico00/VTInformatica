@@ -24,23 +24,21 @@ namespace VTInformatica.Services
 
         public async Task<List<Product>> GetAllAsync()
         {
-            return await _context.Products
+            return await _context.Products.AsNoTracking()
                 .Include(p => p.Manufacturer)
                 .Include(p => p.ProductImages)
                 .Include(p => p.SubCategory!.Category)
                 .Include(p => p.Reviews)
-                .ThenInclude(r => r.User)
                 .ToListAsync();
         }
 
         public async Task<Product?> GetByIdAsync(int id)
         {
-            var product = await _context.Products
+            var product = await _context.Products.AsNoTracking()
                 .Include(p => p.Manufacturer)
                 .Include(p => p.ProductImages)
                 .Include(p => p.SubCategory!.Category)
                 .Include(p => p.Reviews)
-                .ThenInclude(r => r.User)
                 .FirstOrDefaultAsync(p => p.Id == id);
             if (product == null) return null;
 
@@ -49,7 +47,7 @@ namespace VTInformatica.Services
 
         public async Task<List<Product>> SearchProductsAsync(string query)
         {
-            return await _context.Products
+            return await _context.Products.AsNoTracking()
                 .Include(p => p.Manufacturer)
                 .Include(p => p.SubCategory!.Category)
                 .Include(p => p.ProductImages)
@@ -192,7 +190,7 @@ namespace VTInformatica.Services
         public async Task<List<GetProductDto>> GetProductsByCategoryIdAsync(int categoryId)
         {
             // La categoria di un prodotto è quella della sua sottocategoria.
-            var products = await _context.Products.Include(p => p.Manufacturer).Include(p => p.ProductImages).Include(p => p.SubCategory!.Category)
+            var products = await _context.Products.AsNoTracking().Include(p => p.Manufacturer).Include(p => p.ProductImages).Include(p => p.SubCategory!.Category)
                 .Where(p => p.SubCategory!.CategoryId == categoryId).ToListAsync();
 
             return products.Select(ProductMapper.ToGetProductDto).ToList();
@@ -200,7 +198,7 @@ namespace VTInformatica.Services
 
         public async Task<List<GetProductDto>> GetProductsBySubCategoryIdAsync(int subCategoryId)
         {
-            var products = await _context.Products.Include(p => p.Manufacturer).Include(p => p.ProductImages).Include(p => p.SubCategory!.Category)
+            var products = await _context.Products.AsNoTracking().Include(p => p.Manufacturer).Include(p => p.ProductImages).Include(p => p.SubCategory!.Category)
                 .Where(p => p.SubCategoryId == subCategoryId).ToListAsync();
 
             return products.Select(ProductMapper.ToGetProductDto).ToList();
@@ -208,7 +206,7 @@ namespace VTInformatica.Services
 
         public async Task<List<GetProductDto>> GetProductsByManufacturerIdAsync(int manufacturerId)
         {
-            var products = await _context.Products.Include(p => p.Manufacturer).Include(p => p.ProductImages).Include(p => p.SubCategory!.Category)
+            var products = await _context.Products.AsNoTracking().Include(p => p.Manufacturer).Include(p => p.ProductImages).Include(p => p.SubCategory!.Category)
                .Where(p => p.ManufacturerId == manufacturerId).ToListAsync();
 
             return products.Select(ProductMapper.ToGetProductDto).ToList();
