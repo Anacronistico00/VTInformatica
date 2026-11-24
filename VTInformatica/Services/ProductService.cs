@@ -8,6 +8,7 @@ using VTInformatica.DTOs.Product;
 using VTInformatica.DTOs.SubCategory;
 using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
+using VTInformatica.Mapping;
 using VTInformatica.Models;
 
 namespace VTInformatica.Services
@@ -211,45 +212,7 @@ namespace VTInformatica.Services
             var products = await _context.Products.Include(p => p.Manufacturer).Include(p => p.ProductImages).Include(p => p.Category).Include(p => p.SubCategory)
             .Where(p => p.CategoryId == categoryId).ToListAsync();
 
-            if(products != null)
-            {
-            var result = products.Select(p => new GetProductDto
-                {
-                    ManufacturerId = p.ManufacturerId,
-                    Manufacturer = p.Manufacturer != null ? new CreateManufacturerDto()
-                        {
-                            ManufacturerName = p.Manufacturer.ManufacturerName,
-                            ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
-                        } : null,
-                    Id = p.Id,
-                    Name = p.Name,
-                    Description = p.Description,
-                    FullDescription = p.FullDescription,
-                    Price = p.Price,
-                    Quantity = p.Quantity,
-                    Category = p.Category != null ? new GetCategoryDto
-                    {
-                            Id = p.Category.Id,
-                            Name = p.Category.Name,
-                        } : null,
-                    SubCategory = p.SubCategory != null ? new SubCategoryDto
-                        {
-                            Id = p.SubCategory.Id,
-                            Name = p.SubCategory.Name,
-                            CategoryId = p.SubCategory.CategoryId,
-                        } : null,
-                    ProductImages = p.ProductImages != null
-                        ? p.ProductImages.Select(img => new ProductImageDto
-                        {
-                                ImageUrl = img.ImageUrl
-                        }).ToList()
-                        : new List<ProductImageDto>()
-                }).ToList();
-            return result;
-            }
-
-            return null;
-
+            return products.Select(ProductMapper.ToGetProductDto).ToList();
         }
 
         public async Task<List<GetProductDto>> GetProductsBySubCategoryIdAsync(int subCategoryId)
@@ -257,40 +220,7 @@ namespace VTInformatica.Services
             var products = await _context.Products.Include(p => p.Manufacturer).Include(p => p.ProductImages).Include(p => p.Category).Include(p => p.SubCategory)
                 .Where(p => p.SubCategoryId == subCategoryId).ToListAsync();
 
-            var result = products.Select(p => new GetProductDto
-            {
-                ManufacturerId = p.ManufacturerId,
-                Manufacturer = p.Manufacturer != null ? new CreateManufacturerDto()
-                    {
-                        ManufacturerName = p.Manufacturer.ManufacturerName,
-                        ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
-                    } : null,
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                FullDescription = p.FullDescription,
-                Price = p.Price,
-                Quantity = p.Quantity,
-                Category = p.Category != null ? new GetCategoryDto
-                {
-                        Id = p.Category.Id,
-                        Name = p.Category.Name,
-                    } : null,
-                SubCategory = p.SubCategory != null ? new SubCategoryDto
-                    {
-                        Id = p.SubCategory.Id,
-                        Name = p.SubCategory.Name,
-                        CategoryId = p.SubCategory.CategoryId,
-                    } : null,
-                ProductImages = p.ProductImages != null
-                     ? p.ProductImages.Select(img => new ProductImageDto
-                     {
-                         ImageUrl = img.ImageUrl
-                     }).ToList()
-                     : new List<ProductImageDto>()
-            }).ToList();
-
-            return result;
+            return products.Select(ProductMapper.ToGetProductDto).ToList();
         }
 
         public async Task<List<GetProductDto>> GetProductsByManufacturerIdAsync(int manufacturerId)
@@ -298,40 +228,7 @@ namespace VTInformatica.Services
             var products = await _context.Products.Include(p => p.Manufacturer).Include(p => p.ProductImages).Include(p => p.Category).Include(p => p.SubCategory)
                .Where(p => p.ManufacturerId == manufacturerId).ToListAsync();
 
-            var result = products.Select(p => new GetProductDto
-            {
-                ManufacturerId = p.ManufacturerId,
-                Manufacturer = p.Manufacturer != null ? new CreateManufacturerDto()
-                    {
-                        ManufacturerName = p.Manufacturer.ManufacturerName,
-                        ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
-                    } : null,
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                FullDescription = p.FullDescription,
-                Price = p.Price,
-                Quantity = p.Quantity,
-                Category = p.Category != null ? new GetCategoryDto
-                    {
-                        Id = p.Category.Id,
-                        Name = p.Category.Name,
-                    } : null,
-                SubCategory = p.SubCategory != null ? new SubCategoryDto
-                    {
-                        Id = p.SubCategory.Id,
-                        Name = p.SubCategory.Name,
-                        CategoryId = p.SubCategory.CategoryId,
-                    } : null,
-                ProductImages = p.ProductImages != null
-                ? p.ProductImages.Select(img => new ProductImageDto
-                    {
-                        ImageUrl = img.ImageUrl
-                    }).ToList()
-                    : new List<ProductImageDto>()
-            }).ToList();
-
-            return result;
+            return products.Select(ProductMapper.ToGetProductDto).ToList();
         }
     }
 }
