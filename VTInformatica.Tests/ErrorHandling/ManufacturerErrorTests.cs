@@ -9,8 +9,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.ErrorHandling;
 
 /// <summary>
-/// ManufacturerController (5 catch) e ManufacturerService (5 log + rethrow) senza try/catch (AUDIT #11).
-/// Prima guardie sul CRUD (nessun test copriva i produttori), poi errori nel formato unico e
+/// ManufacturerController e ManufacturerService (AUDIT #11): CRUD, errori nel formato unico e
 /// delete con prodotti → 409.
 /// </summary>
 [Collection(ApiCollection.Name)]

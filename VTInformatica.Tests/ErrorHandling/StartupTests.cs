@@ -3,9 +3,8 @@ using System.Diagnostics;
 namespace VTInformatica.Tests.ErrorHandling;
 
 /// <summary>
-/// Un avvio fallito deve terminare con exit code diverso da 0 (prima il catch esterno di
-/// Program.cs loggava solo ex.Message e il processo usciva con 0: un orchestratore o la CI
-/// lo vedevano come successo).
+/// Un avvio fallito deve terminare con exit code diverso da 0: un orchestratore o la CI
+/// lo vedrebbero altrimenti come successo.
 /// Avvia l'API reale in un processo separato, quindi è più lento degli altri test.
 /// </summary>
 public class StartupTests

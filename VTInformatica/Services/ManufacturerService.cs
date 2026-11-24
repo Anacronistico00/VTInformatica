@@ -8,7 +8,7 @@ using VTInformatica.Models;
 
 namespace VTInformatica.Services
 {
-    // Nessun try/catch con log + rethrow (AUDIT #11): le eccezioni le logga una sola volta GlobalExceptionHandler.
+    // Le eccezioni le logga una sola volta GlobalExceptionHandler.
     public class ManufacturerService : IManufacturerService
     {
         private readonly ApplicationDbContext _context;

@@ -28,7 +28,7 @@ namespace VTInformatica.Controllers
             return currentEmail != null && await _cartService.ItemBelongsToAsync(cartItemId, currentEmail);
         }
 
-        // Route con identità dal token (M3c1): l'email non viaggia mai nell'URL.
+        // Route con identità dal token: l'email non viaggia nell'URL.
         [HttpGet("me")]
         public Task<IActionResult> GetMyCart() => GetCartCore(User.GetEmail());
 
@@ -69,7 +69,6 @@ namespace VTInformatica.Controllers
 
         private async Task<IActionResult> AddItemCore(string? email, CartItemDto dto)
         {
-            // Controllo ridondante (fuori scope M2 n. 9, M3d): resta, nel formato unico.
             if (string.IsNullOrEmpty(email))
                 return this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
 

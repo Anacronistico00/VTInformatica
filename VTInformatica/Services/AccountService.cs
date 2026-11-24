@@ -91,8 +91,8 @@ namespace VTInformatica.Services
         }
 
         /// <summary>
-        /// Sospensione da Admin (sostituisce DeleteUserByEmail). Un utente già disattivato diventa sospeso;
-        /// un sospeso aggiorna la nota. Gli Admin non sono sospendibili (gestione ruoli fuori scope).
+        /// Sospensione da Admin. Un utente già disattivato diventa sospeso; un sospeso aggiorna la nota.
+        /// Gli Admin non sono sospendibili via API.
         /// </summary>
         public async Task<AccountStatusChangeResult> SuspendAsync(string userId, string note)
         {

@@ -125,7 +125,7 @@ namespace VTInformatica.Services
             product.Price = dto.Price;
             if (dto.ExpectedQuantity == null)
             {
-                // Comportamento precedente (sovrascrive lo stock): resta finché il FE non invia ExpectedQuantity.
+                // Senza ExpectedQuantity la quantità viene sovrascritta (compatibilità con i client che non la inviano).
                 product.Quantity = dto.Quantity;
             }
             product.SubCategoryId = dto.SubCategoryId;

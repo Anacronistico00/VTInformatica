@@ -40,8 +40,8 @@ namespace VTInformatica.Data
             modelBuilder.Entity<ApplicationUserRole>().HasOne(p => p.User).WithMany(p => p.ApplicationUserRoles).HasForeignKey(p => p.UserId).IsRequired(true);
             modelBuilder.Entity<ApplicationUserRole>().HasOne(p => p.Role).WithMany(p => p.ApplicationUserRoles).HasForeignKey(p => p.RoleId).IsRequired(true);
 
-            // GUID fissi, uguali a quelli già nei DB esistenti (migration 20250508102202_Update,
-            // DatabaseScript.sql). Con Guid.NewGuid() ogni migration cancellava e reinseriva i ruoli.
+            // GUID fissi, uguali a quelli dei DB esistenti (DatabaseScript.sql): con GUID generati a ogni
+            // build ogni migration cancellerebbe e reinserirebbe i ruoli.
             const string adminId = "98b4e551-a53d-40fc-9fa4-29d6dd582481";
             const string sellerId = "9ab947f2-b737-46bf-a388-2f8962573a2b";
             const string customerId = "bd7ef491-0f1b-4b8c-9c80-340e14cfac9b";
@@ -74,10 +74,10 @@ namespace VTInformatica.Data
             modelBuilder.Entity<CartItem>().HasOne(ci => ci.Cart).WithMany(c => c.Items).HasForeignKey(ci => ci.CartId);
             modelBuilder.Entity<CartItem>().HasOne(ci => ci.Product).WithMany(p => p.CartItems).HasForeignKey(ci => ci.ProductId);
 
-            // Numero ordine unico (M3c1): una collisione diventa un errore invece di un duplicato silenzioso.
+            // Numero ordine unico: una collisione diventa un errore invece di un duplicato silenzioso.
             modelBuilder.Entity<Order>().HasIndex(o => o.OrderNumber).IsUnique();
 
-            // Lo storico ordini non deve mai essere cancellato insieme al prodotto (prima: cascade per convenzione).
+            // Lo storico ordini non deve mai essere cancellato insieme al prodotto.
             modelBuilder.Entity<OrderItem>().HasOne(oi => oi.Product).WithMany(p => p.Orders).HasForeignKey(oi => oi.ProductId).OnDelete(DeleteBehavior.Restrict);
 
             // Prodotti eliminati (soft delete) esclusi da tutte le query. Le query sugli ordini

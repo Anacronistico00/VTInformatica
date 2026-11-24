@@ -10,7 +10,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Correctness;
 
 /// <summary>
-/// M3c1: route parallele /Cart/me e /Order/me, identità solo dal token.
+/// Route /Cart/me e /Order/me: identità solo dal token.
 /// Le route con {email} restano (e sono marcate [Obsolete]).
 /// </summary>
 [Collection(ApiCollection.Name)]

@@ -7,7 +7,7 @@ using VTInformatica.Interfaces;
 
 namespace VTInformatica.Controllers
 {
-    // Nessun try/catch (AUDIT #11): le eccezioni le gestisce GlobalExceptionHandler.
+    // Le eccezioni le gestisce GlobalExceptionHandler.
     [Route("[controller]")]
     [ApiController]
     public class ManufacturerController : ControllerBase

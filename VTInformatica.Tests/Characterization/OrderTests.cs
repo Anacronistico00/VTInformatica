@@ -43,8 +43,7 @@ public class OrderTests
     [Fact]
     public async Task CreateFromCart_EmptyCart_Returns409CartEmpty()
     {
-        // AUDIT #11 risolto in M3b: prima l'InvalidOperationException "carrello vuoto" diventava
-        // un 500 generico; ora è un errore di dominio 409 cart_empty in ProblemDetails.
+        // AUDIT #11: il carrello vuoto è un errore di dominio 409 cart_empty in ProblemDetails.
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
 
@@ -86,7 +85,7 @@ public class OrderTests
     [Fact]
     public async Task GetOrdersByEmail_OtherUsersEmail_Returns403()
     {
-        // AUDIT #2 risolto in M1b: l'email della route deve coincidere con quella del JWT.
+        // AUDIT #2: l'email della route deve coincidere con quella del JWT.
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var (emailA, _, _) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 1);
         var tokenB = await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail());
@@ -116,7 +115,7 @@ public class OrderTests
     [Fact]
     public async Task CreateFromCart_OtherUsersCart_Returns403()
     {
-        // AUDIT #2 risolto in M1b: non si può creare un ordine dal carrello di un altro utente.
+        // AUDIT #2: non si può creare un ordine dal carrello di un altro utente.
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var emailA = TestHelpers.UniqueEmail();
         var clientA = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, emailA));
@@ -139,7 +138,7 @@ public class OrderTests
     [Fact]
     public async Task SoftDelete_OtherUsersOrder_Returns404()
     {
-        // AUDIT #3 risolto in M1b: solo il proprietario (o Admin/Seller) può annullare l'ordine.
+        // AUDIT #3: solo il proprietario (o Admin/Seller) può annullare l'ordine.
         // 404 e non 403, per non rivelare l'esistenza dell'ordine.
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var (_, _, orderA) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 2);
@@ -171,7 +170,7 @@ public class OrderTests
     [Fact]
     public async Task Restore_OtherUsersOrder_Returns404()
     {
-        // AUDIT #3 risolto in M1b: stesso controllo di proprietà del delete, stessa risposta 404.
+        // AUDIT #3: stesso controllo di proprietà del delete, stessa risposta 404.
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var (_, tokenA, orderA) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 2);
         var clientA = TestHelpers.AuthorizedClient(_factory, tokenA);

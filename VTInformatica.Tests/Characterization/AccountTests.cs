@@ -37,7 +37,7 @@ public class AccountTests
     [Fact]
     public async Task Register_NewUser_IsAssignedCustomerRole()
     {
-        // AUDIT #1 risolto in M1a: il ruolo di default alla registrazione è Customer (prima era Admin).
+        // AUDIT #1: il ruolo di default alla registrazione è Customer.
         // L'uguaglianza sull'array completo garantisce anche che Admin NON sia assegnato.
         var client = _factory.CreateClient();
         var email = TestHelpers.UniqueEmail();
@@ -70,7 +70,7 @@ public class AccountTests
     [Fact]
     public async Task Login_ValidCredentials_ReturnsJwt_WithEmailAndCustomerRoleClaims()
     {
-        // AUDIT #1 risolto in M1a: il token di un utente appena registrato contiene solo role=Customer.
+        // AUDIT #1: il token di un utente appena registrato contiene solo role=Customer.
         var client = _factory.CreateClient();
         var email = TestHelpers.UniqueEmail();
         await TestHelpers.RegisterAsync(client, email);

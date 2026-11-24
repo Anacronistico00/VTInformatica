@@ -6,7 +6,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Integrity;
 
 /// <summary>
-/// M3c2: carrello e ordini usano l'email come chiave, quindi non può esistere più di un
+/// Carrello e ordini usano l'email come chiave, quindi non può esistere più di un
 /// utente con la stessa email (RequireUniqueEmail), nemmeno con UserName diverso.
 /// </summary>
 [Collection(ApiCollection.Name)]

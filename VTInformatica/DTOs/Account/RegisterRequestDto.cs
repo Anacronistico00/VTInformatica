@@ -20,6 +20,6 @@ namespace VTInformatica.DTOs.Account
         [Required]
         public DateOnly BirthDate { get; set; }
 
-        // IsActive rimosso (AUDIT #9): lo decide il server. Se il client lo invia ancora viene ignorato.
+        // IsActive non è un campo del client: lo decide il server (se inviato, viene ignorato).
     }
 }

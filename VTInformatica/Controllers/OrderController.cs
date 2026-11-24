@@ -55,7 +55,7 @@ namespace VTInformatica.Controllers
             return Ok(order);
         }
 
-        // Route con identità dal token (M3c1): l'email non viaggia mai nell'URL.
+        // Route con identità dal token: l'email non viaggia nell'URL.
         [HttpGet("me")]
         [Authorize]
         public async Task<IActionResult> GetMyOrders()

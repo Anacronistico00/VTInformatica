@@ -6,7 +6,7 @@ using VTInformatica.Interfaces;
 
 namespace VTInformatica.Controllers
 {
-    // Nessun try/catch (AUDIT #11): le eccezioni le gestisce GlobalExceptionHandler.
+    // Le eccezioni le gestisce GlobalExceptionHandler.
     // NotFound() senza corpo diventa ProblemDetails not_found (ApiController + ApiProblems.Customize).
     [Route("[controller]")]
     [ApiController]

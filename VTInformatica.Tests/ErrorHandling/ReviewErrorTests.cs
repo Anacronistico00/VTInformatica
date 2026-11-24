@@ -6,9 +6,8 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.ErrorHandling;
 
 /// <summary>
-/// ReviewController senza i catch generici (AUDIT #11). Le politiche di M1 restano nel controller
-/// e invariate nello status: update di una review altrui → 403, delete di una review altrui → 404
-/// (non ne riveliamo l'esistenza). Cambia solo il formato del corpo.
+/// ReviewController (AUDIT #11): update di una review altrui → 403, delete di una review altrui → 404
+/// (non ne riveliamo l'esistenza), errori nel formato unico.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class ReviewErrorTests

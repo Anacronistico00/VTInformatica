@@ -49,7 +49,7 @@ namespace VTInformatica.Services
 
         public async Task<GetReviewDto> CreateAsync(CreateReviewDto dto)
         {
-            // Prodotto inesistente o eliminato (il query filter lo esclude): 404 invece della violazione FK (500).
+            // Prodotto inesistente o eliminato (il query filter lo esclude): 404 prima di arrivare alla FK.
             if (!await _context.Products.AnyAsync(p => p.Id == dto.ProductId))
                 throw new ProductNotFoundException(dto.ProductId);
 
