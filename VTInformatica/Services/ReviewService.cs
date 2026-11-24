@@ -47,6 +47,16 @@ namespace VTInformatica.Services
             return reviews;
         }
 
+        public async Task<List<MyReviewDto>> GetMineAsync(string userId)
+        {
+            return await _context.Reviews
+                .Where(r => r.UserId == userId)
+                .OrderByDescending(r => r.CreatedAt)
+                .ThenByDescending(r => r.ReviewId)
+                .Select(ReviewMapper.MineProjection)
+                .ToListAsync();
+        }
+
         public async Task<GetReviewDto> CreateAsync(CreateReviewDto dto)
         {
             // Prodotto inesistente o eliminato (il query filter lo esclude): 404 prima di arrivare alla FK.

@@ -16,5 +16,15 @@ namespace VTInformatica.Mapping
             CreatedAt = r.CreatedAt,
             ProductId = r.ProductId,
         };
+
+        // Vista dell'autore stesso: nessuna email.
+        public static readonly Expression<Func<Review, MyReviewDto>> MineProjection = r => new MyReviewDto
+        {
+            ReviewId = r.ReviewId,
+            ProductId = r.ProductId,
+            ReviewRating = r.ReviewRating,
+            ReviewComment = r.ReviewComment,
+            CreatedAt = r.CreatedAt,
+        };
     }
 }
