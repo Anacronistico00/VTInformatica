@@ -333,7 +333,90 @@ public class AccountDeactivationTests
         Assert.True((await FindUserAsync(email)).IsActive);
     }
 
+    // ---- POST /Account/reactivate: solo per chi si è disattivato da sé, con password ----
+
+    [Fact]
+    public async Task Reactivate_SelfDeactivated_ReturnsToken_AndClearsFields()
+    {
+        var email = await CreateUserAsync("deactivated", note: "Pausa");
+
+        var response = await ReactivateAsync(email, TestHelpers.ValidPassword);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var token = (await response.Content.ReadFromJsonAsync<VTInformatica.DTOs.Account.TokenResponseDto>())!.Token;
+        var user = await FindUserAsync(email);
+        Assert.True(user.IsActive);
+        Assert.Null(user.DeactivationReason);
+        Assert.Null(user.DeactivationNote);
+        Assert.Null(user.DeactivatedAt);
+
+        // Il token restituito è subito utilizzabile.
+        var client = TestHelpers.AuthorizedClient(_factory, token);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/Cart/{email}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Reactivate_Suspended_Returns403AccountSuspended()
+    {
+        const string note = "Nota riservata 9c1d";
+        var email = await CreateUserAsync("suspended", note);
+
+        var response = await ReactivateAsync(email, TestHelpers.ValidPassword);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("account_suspended", await CodeAsync(response));
+        Assert.DoesNotContain(note, await response.Content.ReadAsStringAsync());
+        Assert.False((await FindUserAsync(email)).IsActive);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("deactivated")]
+    [InlineData("suspended")]
+    public async Task Reactivate_WrongPasswordOrMissingEmail_SameBodyAsLogin401(string state)
+    {
+        var email = state == "missing" ? TestHelpers.UniqueEmail() : await CreateUserAsync(state);
+        var login401 = await TestHelpers.LoginAsync(_factory.CreateClient(), TestHelpers.UniqueEmail(), WrongPassword);
+
+        var response = await ReactivateAsync(email, WrongPassword);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(await NormalizedBodyAsync(login401), await NormalizedBodyAsync(response));
+    }
+
+    [Fact]
+    public async Task Reactivate_LockedOut_Returns401EvenWithCorrectPassword()
+    {
+        var email = await CreateUserAsync("deactivated");
+
+        for (var i = 0; i < MaxFailedAccessAttempts(); i++)
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, (await ReactivateAsync(email, WrongPassword)).StatusCode);
+        }
+
+        var response = await ReactivateAsync(email, TestHelpers.ValidPassword);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("invalid_credentials", await CodeAsync(response));
+        Assert.False((await FindUserAsync(email)).IsActive);
+    }
+
+    [Fact]
+    public async Task Reactivate_ActiveAccount_ReturnsToken()
+    {
+        // Decisione 3: su un account attivo equivale a un login.
+        var email = await CreateUserAsync("active");
+
+        var response = await ReactivateAsync(email, TestHelpers.ValidPassword);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(string.IsNullOrEmpty((await response.Content.ReadFromJsonAsync<VTInformatica.DTOs.Account.TokenResponseDto>())!.Token));
+    }
+
     // ---- Helper ----
+
+    private Task<HttpResponseMessage> ReactivateAsync(string email, string password) =>
+        _factory.CreateClient().PostAsJsonAsync("/Account/reactivate", new { email, password });
 
     private static Task<HttpResponseMessage> DeleteAccountAsync(HttpClient client, string userId, object? body)
     {
