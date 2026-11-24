@@ -2,13 +2,15 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using VTInformatica.DTOs.Cart;
 using VTInformatica.Models.Auth;
 using VTInformatica.Tests.Infrastructure;
 
 namespace VTInformatica.Tests.Integrity;
 
 /// <summary>
-/// Integrità degli account: registrazione su email disattivata (AUDIT #9).
+/// Integrità degli account: registrazione su email disattivata (AUDIT #9) e modifica
+/// del profilo senza rompere il legame email → carrello/ordini.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class AccountIntegrityTests
@@ -65,6 +67,86 @@ public class AccountIntegrityTests
 
         Assert.True((await FindUserAsync(email)).IsActive);
         Assert.Equal(HttpStatusCode.OK, (await TestHelpers.LoginAsync(client, email)).StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateUser_ChangingEmail_Returns400_AndCartStillReachable()
+    {
+        // Carrello e ordini usano l'email come chiave: cambiarla da qui rompeva il legame
+        // (e UserName restava quello vecchio). Il cambio email richiede un flusso dedicato.
+        var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
+        var email = TestHelpers.UniqueEmail();
+        var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productId, quantity: 2)).StatusCode);
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+
+        var response = await client.PutAsJsonAsync($"/Account/UpdateUser/{userId}", new
+        {
+            firstName = "Mario",
+            lastName = "Rossi",
+            email = TestHelpers.UniqueEmail(),
+            birthDate = "1990-01-01"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var user = await FindUserAsync(email);
+        Assert.Equal(email, user.Email);
+        Assert.Equal(email, user.UserName);
+
+        var cart = await client.GetFromJsonAsync<GetCartDto>($"/Cart/{email}");
+        Assert.Equal(2, Assert.Single(cart!.Items).Quantity);
+    }
+
+    [Fact]
+    public async Task UpdateUser_SameEmailOrNoEmail_UpdatesProfile()
+    {
+        // Guardia: nome e data di nascita restano modificabili; l'email uguale (anche con
+        // maiuscole diverse) o assente non è un cambio.
+        var email = TestHelpers.UniqueEmail();
+        var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+
+        var sameEmail = await client.PutAsJsonAsync($"/Account/UpdateUser/{userId}", new
+        {
+            firstName = "Luigi",
+            lastName = "Verdi",
+            email = email.ToUpperInvariant(),
+            birthDate = "1985-05-05"
+        });
+        Assert.Equal(HttpStatusCode.OK, sameEmail.StatusCode);
+
+        var noEmail = await client.PutAsJsonAsync($"/Account/UpdateUser/{userId}", new
+        {
+            firstName = "Anna",
+            lastName = "Bianchi",
+            birthDate = "1985-05-05"
+        });
+        Assert.Equal(HttpStatusCode.OK, noEmail.StatusCode);
+
+        var user = await FindUserAsync(email);
+        Assert.Equal("Anna", user.FirstName);
+        Assert.Equal("Bianchi", user.LastName);
+        Assert.Equal(new DateOnly(1985, 5, 5), user.BirthDate);
+        Assert.Equal(email, user.Email);
+    }
+
+    [Fact]
+    public async Task UpdateUser_MissingName_Returns400_AndKeepsProfile()
+    {
+        // Guardia: con <Nullable>enable</Nullable> le stringhe non-nullable del DTO sono già
+        // obbligatorie per [ApiController]. Deve restare vero quando Email diventa opzionale.
+        var email = TestHelpers.UniqueEmail();
+        var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+
+        var response = await client.PutAsJsonAsync($"/Account/UpdateUser/{userId}", new
+        {
+            lastName = "Rossi",
+            birthDate = "1990-01-01"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("Mario", (await FindUserAsync(email)).FirstName);
     }
 
     private async Task DeactivateAsync(string email)
