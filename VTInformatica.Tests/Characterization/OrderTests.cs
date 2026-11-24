@@ -41,16 +41,16 @@ public class OrderTests
     }
 
     [Fact]
-    public async Task CreateFromCart_EmptyCart_Returns500()
+    public async Task CreateFromCart_EmptyCart_Returns409CartEmpty()
     {
-        // Fotografa la gestione errori attuale: l'InvalidOperationException "carrello vuoto"
-        // viene catturata dal controller e trasformata in un 500 generico (audit #11).
+        // AUDIT #11 risolto in M3b: prima l'InvalidOperationException "carrello vuoto" diventava
+        // un 500 generico; ora è un errore di dominio 409 cart_empty in ProblemDetails.
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
 
         var response = await client.PostAsync($"/Order/from-cart/{email}", null);
 
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        await ProblemAssert.IsProblemAsync(response, HttpStatusCode.Conflict, "cart_empty");
     }
 
     [Fact]
