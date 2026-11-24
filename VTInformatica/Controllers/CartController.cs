@@ -25,11 +25,7 @@ namespace VTInformatica.Controllers
         private async Task<bool> ItemBelongsToCurrentUserAsync(int cartItemId)
         {
             var currentEmail = User.GetEmail();
-            if (currentEmail == null)
-                return false;
-
-            var cart = await _cartService.GetCartByEmailAsync(currentEmail);
-            return cart != null && cart.Items.Any(i => i.Id == cartItemId);
+            return currentEmail != null && await _cartService.ItemBelongsToAsync(cartItemId, currentEmail);
         }
 
         // Route con identità dal token (M3c1): l'email non viaggia mai nell'URL.

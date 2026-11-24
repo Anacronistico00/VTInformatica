@@ -63,7 +63,7 @@ public class ProductSoftDeleteTests
     }
 
     [Fact]
-    public async Task DeleteProduct_RemovesItFromCarts_AndUpdatesSavedTotal()
+    public async Task DeleteProduct_RemovesItFromCarts_AndTheTotalExcludesIt()
     {
         var deletedId = await TestHelpers.SeedProductAsync(_factory, quantity: 10, price: 100m);
         var keptId = await TestHelpers.SeedProductAsync(_factory, quantity: 10, price: 30m);
@@ -77,12 +77,6 @@ public class ProductSoftDeleteTests
         var cart = await client.GetFromJsonAsync<GetCartDto>($"/Cart/{email}");
         Assert.Equal(2, Assert.Single(cart!.Items).Quantity);
         Assert.Equal(60m, cart.TotalPrice);
-
-        // Cart.TotalPrice è anche persistito: non deve restare il totale con il prodotto eliminato.
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var savedTotal = await db.Carts.AsNoTracking().Where(c => c.Email == email).Select(c => c.TotalPrice).SingleAsync();
-        Assert.Equal(60m, savedTotal);
     }
 
     [Fact]

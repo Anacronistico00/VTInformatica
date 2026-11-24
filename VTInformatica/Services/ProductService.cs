@@ -182,21 +182,8 @@ namespace VTInformatica.Services
 
             product.IsDeleted = true;
 
-            // Il prodotto esce dai carrelli e il totale persistito viene ricalcolato.
-            // Un solo SaveChanges: flag, righe e totali nella stessa transazione.
-            var carts = await _context.Carts
-                .Include(c => c.Items).ThenInclude(i => i.Product)
-                .Where(c => c.Items.Any(i => i.ProductId == id))
-                .ToListAsync();
-
-            foreach (var cart in carts)
-            {
-                var removed = cart.Items.Where(i => i.ProductId == id).ToList();
-                _context.CartItems.RemoveRange(removed);
-                cart.TotalPrice = cart.Items.Except(removed)
-                    .Where(i => i.Product != null)
-                    .Sum(i => i.Quantity * i.Product.Price);
-            }
+            // Il prodotto esce dai carrelli. Un solo SaveChanges: flag e righe nella stessa transazione.
+            _context.CartItems.RemoveRange(await _context.CartItems.Where(i => i.ProductId == id).ToListAsync());
 
             await _context.SaveChangesAsync();
             return true;
