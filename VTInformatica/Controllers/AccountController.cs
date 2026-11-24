@@ -8,6 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using VTInformatica.DTOs.Account;
+using VTInformatica.Exceptions;
 using VTInformatica.Models.Auth;
 using VTInformatica.Services;
 using VTInformatica.Settings;
@@ -155,7 +156,16 @@ namespace VTInformatica.Controllers
             if (id != User.FindFirstValue(ClaimTypes.NameIdentifier) && !User.IsInRole("Admin"))
                 return Forbid();
 
-            var success = await _accountService.UpdateUserAsync(id, dto);
+            bool success;
+            try
+            {
+                success = await _accountService.UpdateUserAsync(id, dto);
+            }
+            catch (EmailChangeNotAllowedException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+
             if (!success)
                 return NotFound(new { message = "Utente non trovato o errore nell'aggiornamento." });
 

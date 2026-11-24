@@ -4,7 +4,8 @@
     {
         public string FirstName { get; set; }
         public string LastName { get; set; }
-        public string Email { get; set; }
+        // Opzionale e non modificabile: se presente deve coincidere con quella attuale (altrimenti 400).
+        public string? Email { get; set; }
         public DateOnly BirthDate { get; set; }
     }
 }
