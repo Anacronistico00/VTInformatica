@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using VTInformatica.DTOs;
 using VTInformatica.DTOs.Product;
 using VTInformatica.Errors;
 using VTInformatica.Interfaces;
@@ -20,11 +21,15 @@ namespace VTInformatica.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] PageQuery paging)
         {
-            var products = await _productService.GetAllAsync();
-
+            // Senza page/pageSize: lista completa. Con uno dei due: stessa lista paginata + X-Total-Count.
             // Catalogo vuoto = 200 []. Le eccezioni le gestisce GlobalExceptionHandler.
+            if (!paging.IsRequested)
+                return Ok((await _productService.GetAllAsync()).Select(ProductMapper.ToProductDto));
+
+            var (products, total) = await _productService.GetPageAsync(paging);
+            Response.Headers[PageQuery.TotalCountHeader] = total.ToString();
             return Ok(products.Select(ProductMapper.ToProductDto));
         }
 

@@ -7,6 +7,7 @@ using Serilog;
 using System.Security.Claims;
 using System.Text;
 using VTInformatica.Data;
+using VTInformatica.DTOs;
 using VTInformatica.Errors;
 using VTInformatica.Interfaces;
 using VTInformatica.Models.Auth;
@@ -189,6 +190,7 @@ try
         c.WithOrigins(allowedOrigins)
         .AllowAnyMethod()
         .AllowAnyHeader()
+        .WithExposedHeaders(PageQuery.TotalCountHeader)
         );
 
     // Configure the HTTP request pipeline.
