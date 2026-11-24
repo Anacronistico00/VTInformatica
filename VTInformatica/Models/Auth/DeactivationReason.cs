@@ -6,7 +6,7 @@ namespace VTInformatica.Models.Auth
         /// <summary>Il cliente ha cancellato il proprio account: può riattivarlo con la password.</summary>
         User = 1,
 
-        /// <summary>Ban di un Admin: solo un Admin può revocarlo.</summary>
+        /// <summary>Sospensione da parte di un Admin: solo un Admin può revocarla.</summary>
         Admin = 2
     }
 }

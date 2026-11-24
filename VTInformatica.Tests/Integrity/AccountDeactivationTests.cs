@@ -11,7 +11,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Integrity;
 
 /// <summary>
-/// Disattivazione, ban e riattivazione (docs/AUDIT-prima.md, feat/account-reactivation).
+/// Disattivazione, sospensione e riattivazione (docs/AUDIT-prima.md, feat/account-reactivation).
 /// Lo stato dell'account si rivela solo dopo la verifica della password: con password
 /// errata la risposta è identica per email inesistente, account attivo, disattivato o sospeso.
 /// </summary>
@@ -139,7 +139,7 @@ public class AccountDeactivationTests
     [Fact]
     public async Task Delete_OtherUser_AsAdminOrCustomer_Returns403()
     {
-        // Un admin non disattiva gli altri con DELETE: deve usare /ban.
+        // Un admin non disattiva gli altri con DELETE: deve usare /suspend.
         var targetEmail = await CreateUserAsync("active");
         var targetId = await TestHelpers.GetUserIdAsync(_factory, targetEmail);
         var customer = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail()));
