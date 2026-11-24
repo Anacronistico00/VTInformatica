@@ -221,3 +221,48 @@ la riga "6, 7, 8 – Aperti – M2" della tabella precedente.
 12. `Product.Price` senza precisione esplicita.
 13. Carrello vuoto al checkout → 500 (#11, M3).
 14. `GetOrdersByEmailAsync` con 5 livelli di include (#12, M3).
+
+---
+
+## M3 – mappa delle fette (2026-11-24)
+
+M3 è diviso in fette mergiabili singolarmente: **M3a1** integrità prodotti,
+**M3a2** integrità account (#9, UpdateUser email, token di utenti disattivati),
+**M3b** gestione errori (#11), **M3c** regole residue ordini/review, **M3d**
+pulizia e performance (#12, #13, #15). Restano fuori da M3: chiave email → id
+utente (milestone dedicata dopo M4), moderazione delle review, race reale con
+SQL Server (branch `test/...`).
+
+## Stato avanzamento M3a1 (aggiornato 2026-11-24)
+
+Branch `fix/m3a1-product-integrity`, test-first. Chiude i fuori scope M2 n. 1,
+2, 4, 5.
+
+| Voce                              | Stato          | Come                                                                                                                                                                                           |
+| --------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Seed ruoli con `Guid.NewGuid()`   | Chiuso         | GUID fissi, uguali a quelli dei DB esistenti (migration `20250508102202_Update`, `DatabaseScript.sql`, DB reale). Test che confronta modello e snapshot: blocca in CI le migration dimenticate |
+| `OrderItem → Product` in cascade  | Chiuso         | Soft delete: `Product.IsDeleted` + query filter globale, FK `Restrict`. Gli ordini usano `IgnoreQueryFilters` e conservano le righe. Migration `SoftDeleteProducts`                            |
+| Prodotto eliminato nei carrelli   | Chiuso         | Le righe vengono rimosse e `Cart.TotalPrice` ricalcolato nello stesso `SaveChanges` del delete                                                                                                 |
+| Quantity/Price senza `[Range]`    | Chiuso         | Quantity ≥ 0, Price > 0 su Create/UpdateProductDto → 400                                                                                                                                       |
+| Update admin sovrascrive lo stock | Chiuso lato BE | `ExpectedQuantity` opzionale: update condizionale atomico, 409 se lo stock è cambiato, tutto o niente                                                                                          |
+
+- Test: 54 → 70 (cartella `Integrity/`). Warning di build: 110 (invariati).
+- **FE deve inviare `ExpectedQuantity` nella modifica prodotto e gestire 409
+  (M4).** Senza il campo, la PUT sovrascrive ancora lo stock come prima.
+
+### Limiti noti
+
+- **Migration non verificata da CI** (SQLite + `EnsureCreated`): lo script
+  (`DROP/ADD CONSTRAINT ... ON DELETE NO ACTION`,
+  `ADD IsDeleted bit NOT NULL DEFAULT 0`) va provato con
+  `dotnet ef database update` su SQL Server prima del deploy.
+- Le review di un prodotto eliminato restano visibili in `GET /Review`.
+- Un Manufacturer o una SubCategory con soli prodotti eliminati non si può più
+  cancellare (FK Restrict sulle righe soft-deleted): oggi risponde 500,
+  diventerà 409 in M3b.
+
+### Fuori scope emersi in M3a1 (non toccati)
+
+1. `GET /Product/search` risponde 404 quando non trova nulla, invece di una
+   lista vuota.
+2. Ripristino di un prodotto eliminato: nessun endpoint.
