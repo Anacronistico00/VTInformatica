@@ -73,6 +73,19 @@ namespace VTInformatica.Services
             return result.Succeeded;
         }
 
+        /// <summary>Riattivazione self-service (password già verificata dal controller): azzera i campi di disattivazione.</summary>
+        public async Task ReactivateAsync(ApplicationUser user)
+        {
+            user.IsActive = true;
+            user.DeactivationReason = null;
+            user.DeactivationNote = null;
+            user.DeactivatedAt = null;
+
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+                throw new InvalidOperationException("Riattivazione non salvata.");
+        }
+
         /// <summary>
         /// Sospensione da Admin (sostituisce DeleteUserByEmail). Un utente già disattivato diventa sospeso;
         /// un sospeso aggiorna la nota. Gli Admin non sono sospendibili (gestione ruoli fuori scope).
