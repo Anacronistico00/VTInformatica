@@ -2,12 +2,14 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using VTInformatica.DTOs.Account;
+using VTInformatica.Errors;
 using VTInformatica.Models.Auth;
 using VTInformatica.Services;
 using VTInformatica.Settings;
@@ -36,33 +38,17 @@ namespace VTInformatica.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto registerRequestDto)
         {
-            if (User.Identity.IsAuthenticated)
+            if (User.Identity?.IsAuthenticated == true)
             {
-                return BadRequest(new { message = "Sei già loggato. Non puoi registrarti di nuovo." });
+                return this.ApiProblem(StatusCodes.Status400BadRequest, "already_authenticated", "Sei già loggato. Non puoi registrarti di nuovo.");
             }
 
+            // Anche un utente disattivato risulta "già registrato": la riattivazione non passa da qui.
+            // Stessa risposta per attivi e disattivati: non rivela lo stato dell'account.
             var existingUser = await _userManager.FindByEmailAsync(registerRequestDto.Email);
             if (existingUser != null)
             {
-                if (!existingUser.IsActive)
-                {
-                    existingUser.Email = registerRequestDto.Email;
-                    existingUser.UserName = registerRequestDto.Email;
-                    existingUser.FirstName = registerRequestDto.FirstName;
-                    existingUser.LastName = registerRequestDto.LastName;
-                    existingUser.BirthDate = registerRequestDto.BirthDate;
-
-                    var updateResult = await _userManager.UpdateAsync(existingUser);
-                    if (!updateResult.Succeeded)
-                    {
-                        var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
-                        return BadRequest(new { message = "Errore nella riattivazione dell’utente", errors });
-                    }
-
-                    return Ok(new { message = "Utente riattivato con successo." });
-                }
-
-                return BadRequest(new { message = "Email già registrata" });
+                return this.ApiProblem(StatusCodes.Status400BadRequest, "email_already_registered", "Email già registrata");
             }
 
             var newUser = new ApplicationUser()
@@ -72,24 +58,24 @@ namespace VTInformatica.Controllers
                 FirstName = registerRequestDto.FirstName,
                 LastName = registerRequestDto.LastName,
                 BirthDate = registerRequestDto.BirthDate,
-                IsActive = registerRequestDto.IsActive,
+                IsActive = true, // mai dal client
             };
 
             // Verifico se la password soddisfa i criteri
-            var passwordValidationResult = await _userManager.PasswordValidators.FirstOrDefault().ValidateAsync(_userManager, newUser, registerRequestDto.Password);
+            var passwordValidationResult = await _userManager.PasswordValidators.First().ValidateAsync(_userManager, newUser, registerRequestDto.Password);
             if (!passwordValidationResult.Succeeded)
             {
                 // Se la password non è valida, non crea l'utente e restituisce un errore
-                return BadRequest(new
-                {
-                    message = "Password must include at least one uppercase letter, one lowercase letter, one number, and one special character (-_@!%)."
-                });
+                return this.ApiProblem(StatusCodes.Status400BadRequest, "weak_password",
+                    "Password must include at least one uppercase letter, one lowercase letter, one number, and one special character (-_@!%).");
             }
 
             var result = await _userManager.CreateAsync(newUser, registerRequestDto.Password);
             if (!result.Succeeded)
             {
-                return BadRequest(new { message = "User registration failed.", errors = result.Errors.Select(e => e.Description) });
+                var problem = this.ApiProblem(StatusCodes.Status400BadRequest, "registration_failed", "Registrazione non riuscita.");
+                ((ProblemDetails)problem.Value!).Extensions["errors"] = result.Errors.Select(e => e.Description).ToList();
+                return problem;
             }
 
             await _userManager.AddToRoleAsync(newUser, "Customer");
@@ -102,31 +88,75 @@ namespace VTInformatica.Controllers
         public async Task<IActionResult> Login(LoginRequestDto loginRequestDto)
         {
 
-            if (User.Identity.IsAuthenticated)
+            if (User.Identity?.IsAuthenticated == true)
             {
-                return BadRequest(new { message = "Sei già loggato." });
+                return this.ApiProblem(StatusCodes.Status400BadRequest, "already_authenticated", "Sei già loggato.");
             }
 
             var user = await _userManager.FindByEmailAsync(loginRequestDto.Email);
 
-            if (user == null || !user.IsActive)
+            // Prima la password, poi lo stato: con password errata, email inesistente o lockout
+            // la risposta è sempre la stessa, così lo stato dell'account non viene rivelato.
+            // CheckPasswordSignInAsync controlla il lockout prima della password e non crea cookie.
+            if (user == null)
             {
-                return Unauthorized("Email o password non valide.");
+                return InvalidCredentials();
             }
 
-            var result = await _signInManager.PasswordSignInAsync(user, loginRequestDto.Password, false, false);
+            var result = await _signInManager.CheckPasswordSignInAsync(user, loginRequestDto.Password, lockoutOnFailure: true);
 
             if (!result.Succeeded)
             {
-                return Unauthorized("Invalid email or password");
+                return InvalidCredentials();
             }
 
+            if (!user.IsActive)
+            {
+                return AccountInactive(user);
+            }
+
+            return Ok(await CreateTokenAsync(user));
+        }
+
+        // Riattivazione self-service: solo per chi ha disattivato da sé il proprio account (Reason=User).
+        // Stesse regole del login: password verificata con lockout prima di rivelare lo stato.
+        [HttpPost("reactivate")]
+        public async Task<IActionResult> Reactivate(LoginRequestDto dto)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null)
+            {
+                return InvalidCredentials();
+            }
+
+            var result = await _signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
+            if (!result.Succeeded)
+            {
+                return InvalidCredentials();
+            }
+
+            if (!user.IsActive)
+            {
+                if (user.DeactivationReason != DeactivationReason.User)
+                {
+                    // Sospeso da un Admin: solo un Admin può revocare (403 account_suspended).
+                    return AccountInactive(user);
+                }
+
+                await _accountService.ReactivateAsync(user);
+            }
+
+            return Ok(await CreateTokenAsync(user));
+        }
+
+        private async Task<TokenResponseDto> CreateTokenAsync(ApplicationUser user)
+        {
             var roles = await _signInManager.UserManager.GetRolesAsync(user);
 
             List<Claim> claims = new List<Claim>();
 
             claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id));
-            claims.Add(new Claim(ClaimTypes.Email, user.Email));
+            claims.Add(new Claim(ClaimTypes.Email, user.Email ?? string.Empty));
             claims.Add(new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"));
             claims.Add(new Claim(ClaimTypes.DateOfBirth, user.BirthDate.ToString("yyyy-MM-dd")));
 
@@ -137,17 +167,17 @@ namespace VTInformatica.Controllers
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecurityKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expiry = DateTime.Now.AddMinutes(_jwtSettings.ExpiresInMinutes);
+            var expiry = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiresInMinutes);
 
             var token = new JwtSecurityToken(_jwtSettings.Issuer, _jwtSettings.Audience, claims, expires: expiry, signingCredentials: creds);
 
             string tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
-            return Ok(new TokenResponseDto()
+            return new TokenResponseDto()
             {
                 Token = tokenString,
                 Expires = expiry
-            });
+            };
         }
 
         [HttpGet("UsersList")]
@@ -170,22 +200,73 @@ namespace VTInformatica.Controllers
             if (id != User.FindFirstValue(ClaimTypes.NameIdentifier) && !User.IsInRole("Admin"))
                 return Forbid();
 
+            // Cambio email: EmailChangeNotAllowedException → 400 email_change_not_allowed (GlobalExceptionHandler).
             var success = await _accountService.UpdateUserAsync(id, dto);
             if (!success)
-                return NotFound(new { message = "Utente non trovato o errore nell'aggiornamento." });
+                return this.ApiProblem(StatusCodes.Status404NotFound, "not_found", "Utente non trovato o errore nell'aggiornamento.");
 
             return Ok(new { message = "Utente aggiornato con successo." });
         }
 
-        [HttpPut("DeleteUserByEmail/{email}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteUser(string email)
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<IActionResult> DeactivateSelf(
+            string id,
+            [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] DeactivateAccountDto? dto)
         {
-            var success = await _accountService.DeleteUserAsync(email);
-            if (!success)
-                return NotFound(new { message = "Utente non trovato o errore durante la cancellazione." });
+            // Solo il proprio account (id dal token): un admin disattiva gli altri con /suspend.
+            // Protezione minima: gli Admin non si disattivano via API.
+            if (id != User.FindFirstValue(ClaimTypes.NameIdentifier) || User.IsInRole("Admin"))
+                return Forbid();
 
-            return Ok(new { message = "Utente eliminato con successo." });
+            var success = await _accountService.DeactivateSelfAsync(id, dto?.Note);
+            return success ? NoContent() : NotFound();
         }
+
+        // Effetto immediato grazie al controllo del token.
+        [HttpPut("{id}/suspend")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Suspend(string id, [FromBody] SuspendUserDto dto)
+        {
+            if (id == User.FindFirstValue(ClaimTypes.NameIdentifier))
+                return AccountProblem(StatusCodes.Status400BadRequest, "Un admin non può sospendere se stesso.", "cannot_suspend_self");
+
+            return await _accountService.SuspendAsync(id, dto.Note!) switch
+            {
+                AccountStatusChangeResult.NotFound => NotFound(),
+                AccountStatusChangeResult.CannotSuspendAdmin =>
+                    AccountProblem(StatusCodes.Status409Conflict, "Non si può sospendere un admin.", "cannot_suspend_admin"),
+                _ => NoContent()
+            };
+        }
+
+        [HttpPut("{id}/unsuspend")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Unsuspend(string id)
+        {
+            return await _accountService.UnsuspendAsync(id) switch
+            {
+                AccountStatusChangeResult.NotFound => NotFound(),
+                AccountStatusChangeResult.NotSuspended =>
+                    AccountProblem(StatusCodes.Status409Conflict, "L'utente non è sospeso.", "not_suspended"),
+                _ => NoContent()
+            };
+        }
+
+        // ---- Errori dell'autenticazione: ProblemDetails con un "code" stabile per il FE ----
+
+        /// <summary>Unica risposta per email inesistente, password errata e lockout: nessuna enumerazione.</summary>
+        private ObjectResult InvalidCredentials() =>
+            AccountProblem(StatusCodes.Status401Unauthorized, "Email o password non valide.", "invalid_credentials");
+
+        /// <summary>Solo dopo la verifica della password. La nota di disattivazione non viene mai restituita.</summary>
+        private ObjectResult AccountInactive(ApplicationUser user) =>
+            user.DeactivationReason == DeactivationReason.User
+                ? AccountProblem(StatusCodes.Status403Forbidden, "Account disattivato.", "account_deactivated")
+                : AccountProblem(StatusCodes.Status403Forbidden, "Account sospeso.", "account_suspended");
+
+        // Stesso formato del gestore globale (Errors/ApiProblems).
+        private ObjectResult AccountProblem(int statusCode, string title, string code) =>
+            this.ApiProblem(statusCode, code, title: title);
     }
 }

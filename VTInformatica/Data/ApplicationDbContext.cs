@@ -40,9 +40,11 @@ namespace VTInformatica.Data
             modelBuilder.Entity<ApplicationUserRole>().HasOne(p => p.User).WithMany(p => p.ApplicationUserRoles).HasForeignKey(p => p.UserId).IsRequired(true);
             modelBuilder.Entity<ApplicationUserRole>().HasOne(p => p.Role).WithMany(p => p.ApplicationUserRoles).HasForeignKey(p => p.RoleId).IsRequired(true);
 
-            var adminId = Guid.NewGuid().ToString();
-            var sellerId = Guid.NewGuid().ToString();
-            var customerId = Guid.NewGuid().ToString();
+            // GUID fissi, uguali a quelli dei DB esistenti (DatabaseScript.sql): con GUID generati a ogni
+            // build ogni migration cancellerebbe e reinserirebbe i ruoli.
+            const string adminId = "98b4e551-a53d-40fc-9fa4-29d6dd582481";
+            const string sellerId = "9ab947f2-b737-46bf-a388-2f8962573a2b";
+            const string customerId = "bd7ef491-0f1b-4b8c-9c80-340e14cfac9b";
 
             modelBuilder.Entity<ApplicationRole>().HasData(
                 new ApplicationRole
@@ -72,7 +74,16 @@ namespace VTInformatica.Data
             modelBuilder.Entity<CartItem>().HasOne(ci => ci.Cart).WithMany(c => c.Items).HasForeignKey(ci => ci.CartId);
             modelBuilder.Entity<CartItem>().HasOne(ci => ci.Product).WithMany(p => p.CartItems).HasForeignKey(ci => ci.ProductId);
 
-            modelBuilder.Entity<Product>().HasOne(p => p.Category).WithMany(c => c.Products).HasForeignKey(p => p.CategoryId).OnDelete(DeleteBehavior.Cascade);
+            // Numero ordine unico: una collisione diventa un errore invece di un duplicato silenzioso.
+            modelBuilder.Entity<Order>().HasIndex(o => o.OrderNumber).IsUnique();
+
+            // Lo storico ordini non deve mai essere cancellato insieme al prodotto.
+            modelBuilder.Entity<OrderItem>().HasOne(oi => oi.Product).WithMany(p => p.Orders).HasForeignKey(oi => oi.ProductId).OnDelete(DeleteBehavior.Restrict);
+
+            // Prodotti eliminati (soft delete) esclusi da tutte le query. Le query sugli ordini
+            // usano IgnoreQueryFilters: OrderItem→Product è required e il filtro nasconderebbe le righe.
+            modelBuilder.Entity<Product>().HasQueryFilter(p => !p.IsDeleted);
+
             modelBuilder.Entity<Product>().HasOne(p => p.SubCategory).WithMany(s => s.Products).HasForeignKey(p => p.SubCategoryId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<SubCategory>().HasOne(s => s.Category).WithMany(c => c.SubCategories).HasForeignKey(s => s.CategoryId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<ProductImage>().HasOne(pi => pi.Product).WithMany(p => p.ProductImages).HasForeignKey(pi => pi.ProductId);

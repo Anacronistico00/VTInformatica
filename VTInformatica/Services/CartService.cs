@@ -6,6 +6,7 @@ using VTInformatica.DTOs.Cart;
 using VTInformatica.DTOs.Product;
 using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
+using VTInformatica.Mapping;
 using VTInformatica.Models;
 using VTInformatica.Models.Auth;
 
@@ -22,52 +23,16 @@ namespace VTInformatica.Services
             _userManager = userManager;
         }
 
-        public async Task<GetCartDto?> GetCartByEmailAsync(string email)
+        public async Task<GetCartDto> GetCartByEmailAsync(string email)
         {
-            var cart = await _context.Carts
+            var cart = await _context.Carts.AsNoTracking()
                 .Include(c => c.Items)
                 .ThenInclude(i => i.Product)
                     .ThenInclude(p => p.ProductImages)
                 .FirstOrDefaultAsync(c => c.Email == email);
 
-            var loggedInUser = await _userManager.FindByEmailAsync(email);
-
-            if (loggedInUser == null)
-            {
-                throw new InvalidOperationException("User not found.");
-            }
-
-            var userId = loggedInUser.Id;
-
-            if (cart == null)
-            {
-                cart = new Cart { Email = email, Items = new List<CartItem>(), UserId = userId };
-                _context.Carts.Add(cart);
-            }
-
-            var totalPrice = cart.Items
-                .Where(i => i.Product != null)
-                .Sum(i => i.Quantity * i.Product.Price);
-
-            return new GetCartDto
-            {
-                Email = cart.Email,
-                TotalPrice = totalPrice,
-                Items = cart.Items.Select(i => new GetCartItemDto
-                {
-                    Id = i.Id,
-                    Quantity = i.Quantity,
-                    Product = new GetCartProductDto
-                    {
-                        Name = i.Product.Name,
-                        Price = i.Product.Price,
-                        ProductImages = i.Product.ProductImages?.Select(img => new ProductImageDto
-                        {
-                            ImageUrl = img.ImageUrl
-                        }).ToList()
-                    }
-                }).ToList()
-            };
+            // Lettura pura: un utente senza carrello ne ha uno vuoto, la riga nasce alla prima aggiunta.
+            return cart == null ? CartMapper.Empty(email) : CartMapper.ToDto(cart);
         }
 
 
@@ -94,7 +59,7 @@ namespace VTInformatica.Services
 
             var existingItem = cart.Items.FirstOrDefault(i => i.ProductId == itemDto.ProductId);
 
-            // AUDIT #8: prodotto esistente e quantità totale nel carrello entro lo stock.
+            // Prodotto esistente e quantità totale nel carrello entro lo stock.
             // Controllo indicativo: la garanzia vera sullo stock è al checkout.
             var product = await _context.Products.AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == itemDto.ProductId);
@@ -125,20 +90,11 @@ namespace VTInformatica.Services
             }
             await _context.SaveChangesAsync();
 
-            var updatedCart = await _context.Carts
-                .Include(c => c.Items).ThenInclude(i => i.Product)
-                .FirstOrDefaultAsync(c => c.Email == email);
-
-            var totalPrice = updatedCart.Items
-                .Where(i => i.Product != null)
-                .Sum(i => i.Quantity * i.Product.Price);
-
-            updatedCart.TotalPrice = totalPrice;
-
-            await _context.SaveChangesAsync();
-
             return await GetCartByEmailAsync(email);
         }
+
+        public Task<bool> ItemBelongsToAsync(int cartItemId, string email) =>
+            _context.CartItems.AnyAsync(i => i.Id == cartItemId && i.Cart.Email == email);
 
         public async Task<bool> RemoveItemAsync(int cartItemId)
         {

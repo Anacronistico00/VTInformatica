@@ -2,7 +2,9 @@
 using VTInformatica.Data;
 using VTInformatica.DTOs.Product;
 using VTInformatica.DTOs.Review;
+using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
+using VTInformatica.Mapping;
 using VTInformatica.Models;
 
 namespace VTInformatica.Services
@@ -19,34 +21,16 @@ namespace VTInformatica.Services
         public async Task<List<GetReviewDto>> GetAllAsync()
         {
             return await _context.Reviews
-                .Select(r => new GetReviewDto
-                {
-                    ReviewId = r.ReviewId,
-                    CustomerEmail = r.Email,
-                    ReviewRating = r.ReviewRating,
-                    ReviewComment = r.ReviewComment,
-                    CreatedAt = r.CreatedAt,
-                    ProductId = r.ProductId,
-                })
+                .Select(ReviewMapper.Projection)
                 .ToListAsync();
         }
 
-        public async Task<GetReviewDto> GetByIdAsync(int id)
+        public async Task<GetReviewDto?> GetByIdAsync(int id)
         {
-            var r = await _context.Reviews
-                .FirstOrDefaultAsync(r => r.ReviewId == id);
-
-            if (r == null) return null;
-
-            return new GetReviewDto
-            {
-                ReviewId = r.ReviewId,
-                CustomerEmail = r.Email,
-                ReviewRating = r.ReviewRating,
-                ReviewComment = r.ReviewComment,
-                CreatedAt = r.CreatedAt,
-                ProductId = r.ProductId,
-            };
+            return await _context.Reviews
+                .Where(r => r.ReviewId == id)
+                .Select(ReviewMapper.Projection)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<List<GetReviewDto>> GetByEmailAsync(string email)
@@ -57,15 +41,7 @@ namespace VTInformatica.Services
 
             var reviews = await _context.Reviews
                 .Where(r => r.Email == user.Email)
-                .Select(r => new GetReviewDto
-                {
-                    ReviewId = r.ReviewId,
-                    CustomerEmail = r.Email,
-                    ReviewRating = r.ReviewRating,
-                    ReviewComment = r.ReviewComment,
-                    CreatedAt = r.CreatedAt,
-                    ProductId = r.ProductId,
-                })
+                .Select(ReviewMapper.Projection)
                 .ToListAsync();
 
             return reviews;
@@ -73,19 +49,24 @@ namespace VTInformatica.Services
 
         public async Task<GetReviewDto> CreateAsync(CreateReviewDto dto)
         {
+            // Prodotto inesistente o eliminato (il query filter lo esclude): 404 prima di arrivare alla FK.
+            if (!await _context.Products.AnyAsync(p => p.Id == dto.ProductId))
+                throw new ProductNotFoundException(dto.ProductId);
+
             var review = new Review
             {
                 ReviewRating = dto.ReviewRating,
                 ReviewComment = dto.ReviewComment,
-                UserId = dto.UserId,
-                Email = dto.Email,
+                // Il controller li imposta sempre dai claim del JWT.
+                UserId = dto.UserId ?? throw new InvalidOperationException("Identità dell'autore mancante."),
+                Email = dto.Email ?? throw new InvalidOperationException("Identità dell'autore mancante."),
                 ProductId = dto.ProductId,
             };
 
             _context.Reviews.Add(review);
             await _context.SaveChangesAsync();
 
-            return await GetByIdAsync(review.ReviewId);
+            return (await GetByIdAsync(review.ReviewId))!;
         }
 
         public async Task<bool> UpdateAsync(int id, UpdateReviewDto dto, string userId)

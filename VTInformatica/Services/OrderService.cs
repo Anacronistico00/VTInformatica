@@ -1,13 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using VTInformatica.Data;
-using VTInformatica.DTOs.Category;
-using VTInformatica.DTOs.Manufacturer;
+using VTInformatica.DTOs;
 using VTInformatica.DTOs.Order;
-using VTInformatica.DTOs.Product;
-using VTInformatica.DTOs.Review;
-using VTInformatica.DTOs.SubCategory;
 using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
+using VTInformatica.Mapping;
 using VTInformatica.Models;
 
 namespace VTInformatica.Services
@@ -23,87 +20,63 @@ namespace VTInformatica.Services
 
         public async Task<List<GetOrderDto>> GetAllAsync()
         {
-            var orders = await _context.Orders
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .ThenInclude(p => p.ProductImages)
+            var orders = await OrdersWithItems().ToListAsync();
+
+            return orders.Select(OrderMapper.ToDto).ToList();
+        }
+
+        public async Task<(List<GetOrderDto> Items, int Total)> GetPageAsync(PageQuery paging)
+        {
+            var total = await _context.Orders.IgnoreQueryFilters().CountAsync();
+            var orders = await OrdersWithItems()
+                .OrderBy(o => o.Id)
+                .Skip(paging.Skip)
+                .Take(paging.Take)
                 .ToListAsync();
 
-            return orders.Select(ToDto).ToList();
+            return (orders.Select(OrderMapper.ToDto).ToList(), total);
         }
+
+        // Letture senza tracking. IgnoreQueryFilters: lo storico include anche i prodotti eliminati (soft delete).
+        private IQueryable<Order> OrdersWithItems() => _context.Orders.AsNoTracking()
+            .IgnoreQueryFilters()
+            .Include(o => o.OrderItems)
+            .ThenInclude(oi => oi.Product)
+            .ThenInclude(p => p.ProductImages);
 
         public async Task<GetOrderDto?> GetByIdAsync(int id)
         {
-            var order = await _context.Orders
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .ThenInclude(p => p.ProductImages)
-                .FirstOrDefaultAsync(o => o.Id == id);
+            var order = await OrdersWithItems().FirstOrDefaultAsync(o => o.Id == id);
 
-            if (order == null) return null;
-
-            return ToDto(order);
+            return order == null ? null : OrderMapper.ToDto(order);
         }
 
         public async Task<List<GetOrderDto>> GetOrdersByEmailAsync(string email)
         {
-            var orders = await _context.Orders
-                .Where(o => o.CustomerEmail == email)
-                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Manufacturer)
-                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Category)
-                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.SubCategory)
-                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.ProductImages)
-                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Reviews)
-                .ToListAsync();
+            var orders = await OrdersWithItems().Where(o => o.CustomerEmail == email).ToListAsync();
 
-            return orders.Select(ToDto).ToList();
+            return orders.Select(OrderMapper.ToDto).ToList();
         }
 
-        // Unico punto di mapping Order -> GetOrderDto (prima duplicato in tre metodi).
-        private static GetOrderDto ToDto(Order order) => new GetOrderDto
-        {
-            Id = order.Id,
-            OrderNumber = order.OrderNumber,
-            CustomerEmail = order.CustomerEmail,
-            CreatedAt = order.CreatedAt,
-            CustomerComment = order.CustomerComment,
-            IsDeleted = order.IsDeleted,
-            Items = order.OrderItems.Select(oi => new GetOrderItemsDto
-            {
-                Quantity = oi.Quantity,
-                Product = new GetOrderProductDto
-                {
-                    Name = oi.Product.Name,
-                    Price = oi.UnitPrice,
-                    ProductImages = oi.Product.ProductImages != null
-                        ? oi.Product.ProductImages.Select(img => new ProductImageDto
-                        {
-                            ImageUrl = img.ImageUrl
-                        }).ToList()
-                        : new List<ProductImageDto>()
-                }
-            }).ToList()
-        };
-
-        public async Task<GetOrderDto> CreateOrderFromCartAsync(string userEmail)
+        public async Task<GetOrderDto> CreateOrderFromCartAsync(string userEmail, string? customerComment = null)
         {
             var cart = await _context.Carts.Include(c => c.Items)
                                             .FirstOrDefaultAsync(c => c.Email == userEmail);
 
             if (cart == null || !cart.Items.Any())
             {
-                throw new InvalidOperationException("Il carrello è vuoto.");
+                throw new EmptyCartException();
             }
 
-            // AUDIT #7: ordine, stock e svuotamento carrello sono tutto o niente.
+            // Ordine, stock e svuotamento carrello sono tutto o niente.
             // Se un'eccezione esce prima del Commit, il dispose fa rollback.
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
             var order = new Order
             {
-                CustomerId = cart.UserId,
+                CustomerId = cart.UserId ?? throw new InvalidOperationException("Carrello senza utente."),
                 CustomerEmail = userEmail,
-                CustomerComment = "Ordine creato dal carrello",
+                CustomerComment = string.IsNullOrWhiteSpace(customerComment) ? null : customerComment.Trim(),
                 OrderItems = new List<OrderItem>()
             };
 
@@ -113,7 +86,7 @@ namespace VTInformatica.Services
                 .Where(p => productIds.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id, p => p.Price);
 
-            // AUDIT #7: decremento atomico condizionale (UPDATE ... WHERE Quantity >= qty).
+            // Decremento atomico condizionale (UPDATE ... WHERE Quantity >= qty).
             // Ordine per ProductId: transazioni concorrenti bloccano le righe nello stesso ordine (niente deadlock).
             foreach (var item in cart.Items.OrderBy(i => i.ProductId))
             {
@@ -148,74 +121,75 @@ namespace VTInformatica.Services
 
             await transaction.CommitAsync();
 
-            return await GetByIdAsync(order.Id);
+            return (await GetByIdAsync(order.Id))!;
         }
 
 
+        // Annulla/ripristina: flag dell'ordine e stock nella stessa transazione, tutto o niente.
+        // Il flag cambia con UPDATE condizionale (WHERE IsDeleted = atteso): due richieste uguali
+        // non rimettono/tolgono lo stock due volte. Lo stock si aggiorna con UPDATE atomici
+        // (Quantity ± n), in ordine di ProductId, senza leggere-e-riscrivere il valore.
         public async Task<bool> SoftDeleteAsync(int orderId)
         {
-            var order = await _context.Orders
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .FirstOrDefaultAsync(o => o.Id == orderId && !o.IsDeleted);
+            await using var transaction = await _context.Database.BeginTransactionAsync();
 
-            if (order == null)
+            if (!await SetDeletedFlagAsync(orderId, expectedDeleted: false))
             {
                 return false;
             }
 
-            order.IsDeleted = true;
-            _context.Orders.Update(order);
-
-            foreach (var orderItem in order.OrderItems)
+            foreach (var (productId, quantity) in await GetQuantitiesByProductAsync(orderId))
             {
-                var product = orderItem.Product;
-                if (product != null)
-                {
-                    product.Quantity += orderItem.Quantity;
-                    _context.Products.Update(product);
-                }
+                await _context.Products.IgnoreQueryFilters()
+                    .Where(p => p.Id == productId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Quantity, p => p.Quantity + quantity));
             }
 
-            await _context.SaveChangesAsync();
-
+            await transaction.CommitAsync();
             return true;
         }
 
         public async Task<bool> RestoreAsync(int orderId)
         {
-            var order = await _context.Orders
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .FirstOrDefaultAsync(o => o.Id == orderId && o.IsDeleted);
+            await using var transaction = await _context.Database.BeginTransactionAsync();
 
-            if (order == null)
+            if (!await SetDeletedFlagAsync(orderId, expectedDeleted: true))
             {
                 return false;
             }
 
-            order.IsDeleted = false;
-            _context.Orders.Update(order);
-
-            foreach (var orderItem in order.OrderItems)
+            foreach (var (productId, quantity) in await GetQuantitiesByProductAsync(orderId))
             {
-                var product = orderItem.Product;
-                if (product != null)
+                var updated = await _context.Products.IgnoreQueryFilters()
+                    .Where(p => p.Id == productId && p.Quantity >= quantity)
+                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Quantity, p => p.Quantity - quantity));
+
+                if (updated == 0)
                 {
-                    if (product.Quantity >= orderItem.Quantity)
-                    {
-                        product.Quantity -= orderItem.Quantity;
-                        _context.Products.Update(product);
-                    }
-                    else
-                    {
-                        return false;
-                    }
+                    // 409: il dispose della transazione annulla anche il flag e i decrementi già fatti.
+                    throw new InsufficientStockException(productId);
                 }
             }
 
-            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return true;
+        }
+
+        private async Task<bool> SetDeletedFlagAsync(int orderId, bool expectedDeleted) =>
+            await _context.Orders.IgnoreQueryFilters()
+                .Where(o => o.Id == orderId && o.IsDeleted == expectedDeleted)
+                .ExecuteUpdateAsync(s => s.SetProperty(o => o.IsDeleted, !expectedDeleted)) > 0;
+
+        private async Task<List<(int ProductId, int Quantity)>> GetQuantitiesByProductAsync(int orderId)
+        {
+            var rows = await _context.Set<OrderItem>().IgnoreQueryFilters().AsNoTracking()
+                .Where(oi => oi.OrderId == orderId)
+                .GroupBy(oi => oi.ProductId)
+                .Select(g => new { ProductId = g.Key, Quantity = g.Sum(oi => oi.Quantity) })
+                .OrderBy(r => r.ProductId)
+                .ToListAsync();
+
+            return rows.Select(r => (r.ProductId, r.Quantity)).ToList();
         }
 
 

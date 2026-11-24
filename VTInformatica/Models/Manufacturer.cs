@@ -8,11 +8,11 @@ namespace VTInformatica.Models
         public int ManufacturerId { get; set; }
 
         [Required]
-        public string ManufacturerName { get; set; }
+        public string ManufacturerName { get; set; } = string.Empty;
 
-        [Required]  
-        public string ManufacturerLogo { get; set; }
+        [Required]
+        public string ManufacturerLogo { get; set; } = string.Empty;
 
-        public List<Product> Products { get; set; }
+        public List<Product> Products { get; set; } = new List<Product>();
     }
 }

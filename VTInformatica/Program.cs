@@ -4,8 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using System.Security.Claims;
 using System.Text;
 using VTInformatica.Data;
+using VTInformatica.DTOs;
+using VTInformatica.Errors;
 using VTInformatica.Interfaces;
 using VTInformatica.Models.Auth;
 using VTInformatica.Services;
@@ -15,6 +18,9 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
     .MinimumLevel.Override("Syster", Serilog.Events.LogEventLevel.Warning)
+    // Le eccezioni le logga GlobalExceptionHandler (una volta sola): il middleware di ASP.NET Core
+    // le registrerebbe di nuovo come Error, anche quelle di dominio.
+    .MinimumLevel.Override("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", Serilog.Events.LogEventLevel.Fatal)
     .Enrich.FromLogContext()
     .WriteTo.Async(a => a.File("Log/Log_txt", rollingInterval: RollingInterval.Day))
     .WriteTo.Async(a => a.Console())
@@ -27,10 +33,14 @@ try
     var builder = WebApplication.CreateBuilder(args);
     builder.Services.AddControllers();
 
+    // Errori in un unico formato (ProblemDetails + code + traceId) e un unico gestore.
+    builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ApiProblems.Customize);
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
     {
-        c.SwaggerDoc("v1", new OpenApiInfo { Title = "CustomersManager API", Version = "v1" });
+        c.SwaggerDoc("v1", new OpenApiInfo { Title = "VTInformatica API", Version = "v1" });
 
         var securityScheme = new OpenApiSecurityScheme
         {
@@ -86,6 +96,16 @@ try
 
         options.Password.RequireUppercase =
             builder.Configuration.GetSection("Identity").GetValue<bool>("RequireUppercase");
+
+        // Carrello e ordini usano l'email come chiave: un'email = un utente.
+        options.User.RequireUniqueEmail = true;
+
+        // Lockout: usato da login e reactivate (CheckPasswordSignInAsync con lockoutOnFailure).
+        options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.MaxFailedAccessAttempts =
+            builder.Configuration.GetSection("Identity").GetValue("MaxFailedAccessAttempts", 5);
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(
+            builder.Configuration.GetSection("Identity").GetValue("LockoutMinutes", 15));
     })
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders();
@@ -112,6 +132,23 @@ try
                ValidAudience = builder.Configuration.GetSection(nameof(Jwt)).GetValue<string>("Audience"),
 
                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+           };
+
+           // Firma e scadenza non bastano: il token di un utente disattivato o cancellato
+           // non deve più autenticare (→ 401). Una lettura dell'utente per richiesta autenticata.
+           options.Events = new JwtBearerEvents
+           {
+               OnTokenValidated = async context =>
+               {
+                   var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                   var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+                   var user = userId == null ? null : await userManager.FindByIdAsync(userId);
+
+                   if (user == null || !user.IsActive)
+                   {
+                       context.Fail("Utente inesistente o disattivato.");
+                   }
+               }
            };
        });
 
@@ -140,13 +177,20 @@ try
 
     var app = builder.Build();
 
-    // Solo le origini configurate in Cors:AllowedOrigins (audit #10).
+    // Primo middleware della pipeline: avvolge tutto il resto. In Development WebApplication
+    // aggiunge da sé la developer exception page *fuori* da questo middleware: il gestore
+    // intercetta ogni eccezione prima, quindi la pagina (con lo stack) non viene mai mostrata.
+    // Verificato da GlobalErrorHandlerTests in Testing, Development e Production.
+    app.UseExceptionHandler();
+
+    // Solo le origini configurate in Cors:AllowedOrigins.
     var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 
     app.UseCors(c =>
         c.WithOrigins(allowedOrigins)
         .AllowAnyMethod()
         .AllowAnyHeader()
+        .WithExposedHeaders(PageQuery.TotalCountHeader)
         );
 
     // Configure the HTTP request pipeline.
@@ -166,14 +210,21 @@ try
     app.Run();
 
 }
-catch (Exception ex)
+// HostAbortedException non è un errore: è il modo in cui gli strumenti EF (migrations add,
+// has-pending-model-changes) fermano l'host dopo averlo costruito. Va lasciata propagare.
+catch (Exception ex) when (ex is not HostAbortedException)
 {
-    Log.Error(ex.Message);
+    // Avvio fallito: log completo (stack compreso) ed exit code 1, così orchestratori e CI
+    // vedono il fallimento.
+    Log.Fatal(ex, "Avvio dell'applicazione fallito.");
+    return 1;
 }
 finally
 {
     await Log.CloseAndFlushAsync();
 }
+
+return 0;
 
 // Esposto per WebApplicationFactory<Program> nei test di integrazione.
 public partial class Program { }

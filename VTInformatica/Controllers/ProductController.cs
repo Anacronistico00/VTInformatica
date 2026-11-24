@@ -1,19 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Serilog;
-using System.Text.Json;
-using VTInformatica.Data;
-using VTInformatica.DTOs.Account;
-using VTInformatica.DTOs.Category;
-using VTInformatica.DTOs.Manufacturer;
+using VTInformatica.DTOs;
 using VTInformatica.DTOs.Product;
-using VTInformatica.DTOs.Review;
-using VTInformatica.DTOs.SubCategory;
+using VTInformatica.Errors;
 using VTInformatica.Interfaces;
-using VTInformatica.Models;
-using VTInformatica.Services;
+using VTInformatica.Mapping;
 
 namespace VTInformatica.Controllers
 {
@@ -29,289 +21,84 @@ namespace VTInformatica.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] PageQuery paging)
         {
-            try
-            {
-                var products = await _productService.GetAllAsync();
+            // Senza page/pageSize: lista completa. Con uno dei due: stessa lista paginata + X-Total-Count.
+            // Catalogo vuoto = 200 []. Le eccezioni le gestisce GlobalExceptionHandler.
+            if (!paging.IsRequested)
+                return Ok((await _productService.GetAllAsync()).Select(ProductMapper.ToProductDto));
 
-                var dtos = products.Select(p => new ProductDto
-                {
-                    Id = p.Id,
-                    ManufacturerId = p.ManufacturerId,
-                    Manufacturer = p.Manufacturer != null ? new ManufacturerDto()
-                    {
-                        ManufacturerName = p.Manufacturer.ManufacturerName,
-                        ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
-                    } : null,
-                    Name = p.Name,
-                    Description = p.Description,
-                    FullDescription = p.FullDescription,
-                    Price = p.Price,
-                    Quantity = p.Quantity,
-                    Category = p.Category != null ? new CategoryDto()
-                    {
-                        Id = p.Category.Id,
-                        Name = p.Category.Name,
-                    } : null,
-                    SubCategory = p.SubCategory != null ? new SubCategoryDto()
-                    {
-                        Id = p.SubCategory.Id,
-                        Name = p.SubCategory.Name,
-                        CategoryId = p.SubCategory.CategoryId,
-                    } : null,
-                    ProductImages = p.ProductImages != null
-                    ? p.ProductImages.Select(img => new ProductImageDto
-                    {
-                        ImageUrl = img.ImageUrl
-                    }).ToList()
-                    : new List<ProductImageDto>(),
-                    Reviews = p.Reviews != null
-                    ? p.Reviews.Select(r => new GetReviewDto
-                    {
-                        ReviewId = r.ReviewId,
-                        ReviewComment = r.ReviewComment,
-                        ReviewRating = r.ReviewRating,
-                        CreatedAt = r.CreatedAt,
-                        CustomerEmail = r.Email
-                    }).ToList()
-                    : new List<GetReviewDto>()
-                });
-
-                if (products == null || !products.Any())
-                    return NotFound(new { message = "No products found." });
-
-                return Ok(dtos);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during GetAll");
-                return StatusCode(500, "Internal server error.");
-            }
+            var (products, total) = await _productService.GetPageAsync(paging);
+            Response.Headers[PageQuery.TotalCountHeader] = total.ToString();
+            return Ok(products.Select(ProductMapper.ToProductDto));
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetProduct(int id)
         {
-            try
-            {
-                var product = await _productService.GetByIdAsync(id);
-                if (product == null)
-                    return NotFound(new { message = "No product found." });
+            var product = await _productService.GetByIdAsync(id);
+            if (product == null)
+                return this.ApiProblem(StatusCodes.Status404NotFound, "not_found", "Prodotto non trovato.");
 
-                var dto = new ProductDto
-                {
-                    Id = product.Id,
-                    ManufacturerId = product.ManufacturerId,
-                    Manufacturer = product.Manufacturer != null ? new ManufacturerDto()
-                    {
-                        ManufacturerName = product.Manufacturer.ManufacturerName,
-                        ManufacturerLogo = product.Manufacturer.ManufacturerLogo,
-                    } : null,
-                    Name = product.Name,
-                    Description = product.Description,
-                    FullDescription = product.FullDescription,
-                    Price = product.Price,
-                    Quantity = product.Quantity,
-                    Category = product.Category != null ? new CategoryDto()
-                    {
-                        Id = product.Category.Id,
-                        Name = product.Category.Name,
-                    } : null,
-                    SubCategory = product.SubCategory != null ? new SubCategoryDto()
-                    {
-                        Id = product.SubCategory.Id,
-                        Name = product.SubCategory.Name,
-                        CategoryId = product.SubCategory.CategoryId,
-                    } : null,
-                    ProductImages = product.ProductImages != null
-                    ? product.ProductImages.Select(img => new ProductImageDto
-                    { 
-                        ImageUrl = img.ImageUrl
-                    }).ToList()
-                    : new List<ProductImageDto>(),
-                    Reviews = product.Reviews != null
-                    ? product.Reviews.Select(r => new GetReviewDto
-                    {
-                        ReviewId = r.ReviewId,
-                        ReviewComment = r.ReviewComment,
-                        ReviewRating = r.ReviewRating,
-                        CreatedAt = r.CreatedAt,
-                        CustomerEmail = r.Email
-                    }).ToList()
-                    : new List<GetReviewDto>()
-                };
-
-                return Ok(dto);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error getting Product");
-                return StatusCode(500, "Internal server error.");
-            }
+            return Ok(ProductMapper.ToProductDto(product));
         }
 
         [HttpGet("search")]
         public async Task<IActionResult> SearchProducts([FromQuery] string query)
         {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(query))
-                    return BadRequest(new { message = "Query string cannot be empty." });
+            // Difensivo: una query vuota o di soli spazi la rifiuta già la validazione (400 validation_failed).
+            if (string.IsNullOrWhiteSpace(query))
+                return this.ApiProblem(StatusCodes.Status400BadRequest, "invalid_query", "La ricerca non può essere vuota.");
 
-                var products = await _productService.SearchProductsAsync(query);
+            // Nessun risultato = 200 [].
+            var products = await _productService.SearchProductsAsync(query);
 
-                if (products == null || !products.Any())
-                    return NotFound(new { message = "No products found matching the query." });
-
-                var dtos = products.Select(p => new ProductDto
-                {
-                    Id = p.Id,
-                    ManufacturerId = p.ManufacturerId,
-                    Manufacturer = p.Manufacturer != null ? new ManufacturerDto()
-                    {
-                        ManufacturerName = p.Manufacturer.ManufacturerName,
-                        ManufacturerLogo = p.Manufacturer.ManufacturerLogo,
-                    } : null,
-                    Name = p.Name,
-                    Description = p.Description,
-                    FullDescription = p.FullDescription,
-                    Price = p.Price,
-                    Quantity = p.Quantity,
-                    Category = p.Category != null ? new CategoryDto()
-                    {
-                        Id = p.Category.Id,
-                        Name = p.Category.Name,
-                    } : null,
-                    SubCategory = p.SubCategory != null ? new SubCategoryDto()
-                    {
-                        Id = p.SubCategory.Id,
-                        Name = p.SubCategory.Name,
-                        CategoryId = p.SubCategory.CategoryId,
-                    } : null,
-                    ProductImages = p.ProductImages?.Select(img => new ProductImageDto
-                    {
-                        ImageUrl = img.ImageUrl
-                    }).ToList() ?? new List<ProductImageDto>(),
-                    Reviews = p.Reviews?.Select(r => new GetReviewDto
-                    {
-                        ReviewId = r.ReviewId,
-                        ReviewComment = r.ReviewComment,
-                        ReviewRating = r.ReviewRating,
-                        CreatedAt = r.CreatedAt,
-                        CustomerEmail = r.Email
-                    }).ToList() ?? new List<GetReviewDto>()
-                });
-
-                return Ok(dtos);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during product search");
-                return StatusCode(500, "Internal server error.");
-            }
+            return Ok(products.Select(ProductMapper.ToProductDto));
         }
 
         [HttpPost]
         [Authorize(Roles = "Admin,Seller")]
         public async Task<IActionResult> Create([FromBody] CreateProductDto dto)
         {
-            try
-            {
-                var newProduct = await _productService.CreateAsync(dto);
-                return CreatedAtAction(nameof(GetProduct), new { id = newProduct.Id }, dto);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during Create");
-                return StatusCode(500, "Internal server error.");
-            }
+            // Sottocategoria o produttore inesistenti: 400 dalle eccezioni di dominio.
+            var newProduct = await _productService.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetProduct), new { id = newProduct.Id }, dto);
         }
 
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin,Seller")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateProductDto dto)
         {
-            try
-            {
-                var success = await _productService.UpdateAsync(id, dto);
-                return success ? NoContent() : NotFound();
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during Update");
-                return StatusCode(500, "Internal server error.");
-            }
+            // Riferimenti inesistenti (400) e stock cambiato (409 stock_conflict): eccezioni di dominio.
+            var success = await _productService.UpdateAsync(id, dto);
+            return success ? NoContent() : NotFound();
         }
 
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin,Seller")]
         public async Task<IActionResult> Delete(int id)
         {
-            try
-            {
-                var success = await _productService.DeleteAsync(id);
-                return success ? NoContent() : NotFound();
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during Delete");
-                return StatusCode(500, "Internal server error.");
-            }
+            var success = await _productService.DeleteAsync(id);
+            return success ? NoContent() : NotFound();
         }
 
         [HttpGet("category/{categoryId}")]
         public async Task<IActionResult> GetProductsByCategory(int categoryId)
         {
-            try
-            {
-                var products = await _productService.GetProductsByCategoryIdAsync(categoryId);
-                if (products == null || !products.Any())
-                    return NotFound(new { message = "No products found for this category." });
-
-                return Ok(products);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error getting products category");
-                return StatusCode(500, "Internal server error.");
-            }
+            // Nessun prodotto = 200 [].
+            return Ok(await _productService.GetProductsByCategoryIdAsync(categoryId));
         }
 
         [HttpGet("subcategory/{subCategoryId}")]
         public async Task<IActionResult> GetProductsBySubCategory(int subCategoryId)
         {
-            try
-            {
-                var products = await _productService.GetProductsBySubCategoryIdAsync(subCategoryId);
-                if (products == null || !products.Any())
-                    return NotFound(new { message = "No products found for this subcategory." });
-
-                return Ok(products);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error getting products subcategory");
-                return StatusCode(500, "Internal server error.");
-            }
+            return Ok(await _productService.GetProductsBySubCategoryIdAsync(subCategoryId));
         }
 
         [HttpGet("manufacturer/{manufacturerId}")]
         public async Task<IActionResult> GetProductsByManufacturer(int manufacturerId)
         {
-            try
-            {
-                var products = await _productService.GetProductsByManufacturerIdAsync(manufacturerId);
-                if (products == null || !products.Any())
-                    return NotFound(new { message = "No products found for this manufacturer." });
-
-                return Ok(products);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error getting products for manufacturer");
-                return StatusCode(500, "Internal server error.");
-            }
+            return Ok(await _productService.GetProductsByManufacturerIdAsync(manufacturerId));
         }
     }
 }

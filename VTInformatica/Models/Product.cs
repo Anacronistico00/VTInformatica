@@ -14,10 +14,10 @@ namespace VTInformatica.Models
         public Manufacturer? Manufacturer { get; set; }
 
         [Required]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [Required]
-        public string Description { get; set; }
+        public string Description { get; set; } = string.Empty;
 
         [Required]
         public decimal Price { get; set; }
@@ -25,13 +25,12 @@ namespace VTInformatica.Models
         [Required]
         public int Quantity { get; set; }
 
+        // Soft delete: il prodotto sparisce dal catalogo (query filter) ma resta per lo storico ordini.
+        public bool IsDeleted { get; set; }
+
         public string? FullDescription { get; set; }
 
-        public int CategoryId { get; set; }
-
-        [ForeignKey("CategoryId")]
-        public Category? Category { get; set; }
-
+        // La categoria è quella della sottocategoria (SubCategory.CategoryId): nessuna seconda copia.
         public int SubCategoryId { get; set; }
         [ForeignKey("SubCategoryId")]
         public SubCategory? SubCategory { get; set; }

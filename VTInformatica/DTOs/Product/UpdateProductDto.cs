@@ -6,19 +6,27 @@ namespace VTInformatica.DTOs.Product
     public class UpdateProductDto
     {
         [Required]
-        public string Name { get; set; }
+        public string Name { get; set; } = null!;
 
         [Required]
         public int ManufacturerId { get; set; }
 
         [Required]
-        public string Description { get; set; }
+        public string Description { get; set; } = null!;
 
         [Required]
+        [Range(0.01, double.MaxValue)]
         public decimal Price { get; set; }
 
+        // 0 = esaurito; negativo non ammesso.
         [Required]
+        [Range(0, int.MaxValue)]
         public int Quantity { get; set; }
+
+        // Stock letto dall'admin quando ha aperto il form. Se presente, Quantity viene scritta
+        // solo se lo stock è ancora questo (altrimenti 409). Opzionale per compatibilità col FE.
+        [Range(0, int.MaxValue)]
+        public int? ExpectedQuantity { get; set; }
 
         [Required]
         public string? FullDescription { get; set; }

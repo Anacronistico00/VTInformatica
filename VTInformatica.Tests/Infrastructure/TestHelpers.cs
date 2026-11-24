@@ -100,7 +100,6 @@ public static class TestHelpers
             Description = "Prodotto creato dai test",
             Price = price,
             Quantity = quantity,
-            CategoryId = 1,
             SubCategoryId = 1,
             ManufacturerId = 1
         };

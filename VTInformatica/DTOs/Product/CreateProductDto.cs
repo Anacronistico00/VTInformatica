@@ -6,18 +6,21 @@ namespace VTInformatica.DTOs.Product
     public class CreateProductDto
     {
         [Required]
-        public string Name { get; set; }
+        public string Name { get; set; } = null!;
 
         [Required]
         public int ManufacturerId { get; set; }
 
         [Required]
-        public string Description { get; set; }
+        public string Description { get; set; } = null!;
 
         [Required]
+        [Range(0.01, double.MaxValue)]
         public decimal Price { get; set; }
 
+        // 0 = esaurito; negativo non ammesso.
         [Required]
+        [Range(0, int.MaxValue)]
         public int Quantity { get; set; }
 
         [Required]

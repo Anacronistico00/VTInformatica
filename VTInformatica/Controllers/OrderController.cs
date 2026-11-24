@@ -2,9 +2,9 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Serilog;
+using VTInformatica.DTOs;
 using VTInformatica.DTOs.Order;
-using VTInformatica.Exceptions;
+using VTInformatica.Errors;
 using VTInformatica.Extensions;
 using VTInformatica.Interfaces;
 using VTInformatica.Models;
@@ -32,42 +32,53 @@ namespace VTInformatica.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin,Seller")]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] PageQuery paging)
         {
-            try
-            {
-                var orders = await _orderService.GetAllAsync();
-                if (orders == null || !orders.Any())
-                    return NotFound("No orders found.");
+            // Senza page/pageSize: lista completa. Con uno dei due: stessa lista paginata + X-Total-Count.
+            // Lista vuota = 200 []. Le eccezioni le gestisce GlobalExceptionHandler.
+            if (!paging.IsRequested)
+                return Ok(await _orderService.GetAllAsync());
 
-                return Ok(orders);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "An error occurred while retrieving all orders.");
-                return StatusCode(500, "Internal server error.");
-            }
+            var (orders, total) = await _orderService.GetPageAsync(paging);
+            Response.Headers[PageQuery.TotalCountHeader] = total.ToString();
+            return Ok(orders);
         }
 
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin,Seller")]
         public async Task<IActionResult> Get(int id)
         {
-            try
-            {
-                var order = await _orderService.GetByIdAsync(id);
-                if (order == null)
-                    return NotFound("No orders found.");
+            var order = await _orderService.GetByIdAsync(id);
+            if (order == null)
+                return this.ApiProblem(StatusCodes.Status404NotFound, "not_found", "Ordine non trovato.");
 
-                return Ok(order);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "An error occurred while retrieving order details.");
-                return StatusCode(500, "Internal server error.");
-            }
+            return Ok(order);
         }
 
+        // Route con identità dal token: l'email non viaggia nell'URL.
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetMyOrders()
+        {
+            var email = User.GetEmail();
+            if (string.IsNullOrEmpty(email))
+                return this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
+
+            return Ok(await _orderService.GetOrdersByEmailAsync(email));
+        }
+
+        [HttpPost("me/from-cart")]
+        [Authorize]
+        public async Task<IActionResult> CreateMyOrderFromCart([FromBody] CreateOrderFromCartDto? dto = null)
+        {
+            var email = User.GetEmail();
+            if (string.IsNullOrEmpty(email))
+                return this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
+
+            return await CreateOrderCore(email, dto);
+        }
+
+        [Obsolete("Usare GET /Order/me: l'identità arriva dal token.")]
         [HttpGet("user/{email}")]
         [Authorize]
         public async Task<IActionResult> GetOrdersByEmail(string email)
@@ -75,102 +86,49 @@ namespace VTInformatica.Controllers
             if (!User.HasEmail(email) && !User.IsStaff())
                 return Forbid();
 
-            try
-            {
-                var orders = await _orderService.GetOrdersByEmailAsync(email);
-                if (orders == null || !orders.Any())
-                    return NotFound("No orders found.");
-
-                return Ok(orders);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "An error occurred while retrieving orders by email.");
-                return StatusCode(500, "Internal server error.");
-            }
+            return Ok(await _orderService.GetOrdersByEmailAsync(email));
         }
 
+        [Obsolete("Usare POST /Order/me/from-cart: l'identità arriva dal token.")]
         [HttpPost("from-cart/{userEmail}")]
         [Authorize]
-        public async Task<IActionResult> CreateOrderFromCart(string userEmail)
+        public async Task<IActionResult> CreateOrderFromCart(string userEmail, [FromBody] CreateOrderFromCartDto? dto = null)
         {
             // Nessuna eccezione per Admin/Seller: si ordina solo dal proprio carrello.
             if (!User.HasEmail(userEmail))
                 return Forbid();
 
-            try
-            {
-                var order = await _orderService.CreateOrderFromCartAsync(userEmail);
-                return CreatedAtAction(nameof(Get), new { id = order.Id }, order);
-            }
-            catch (ProductNotFoundException ex)
-            {
-                Log.Warning("Order from cart rejected: product {ProductId} not found", ex.ProductId);
-                return NotFound(new { message = ex.Message });
-            }
-            catch (InsufficientStockException ex)
-            {
-                Log.Warning("Order from cart rejected: insufficient stock for product {ProductId}", ex.ProductId);
-                return Conflict(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "An error occurred while creating an order from the cart.");
-                return StatusCode(500, "Internal server error.");
-            }
+            return await CreateOrderCore(userEmail, dto);
+        }
+
+        private async Task<IActionResult> CreateOrderCore(string email, CreateOrderFromCartDto? dto)
+        {
+            // Carrello vuoto (409), prodotto inesistente (404) e stock insufficiente (409) sono
+            // eccezioni di dominio: le traduce GlobalExceptionHandler.
+            var order = await _orderService.CreateOrderFromCartAsync(email, dto?.CustomerComment);
+            return CreatedAtAction(nameof(Get), new { id = order.Id }, order);
         }
 
         [HttpPut("{id}/delete")]
         [Authorize]
         public async Task<IActionResult> SoftDelete(int id)
         {
-            try
-            {
-                // 404 anche se l'ordine esiste ma non è dell'utente: non ne riveliamo l'esistenza.
-                if (!await CanManageOrderAsync(id))
-                    return NotFound(new { message = "Order not found or already deleted" });
+            // 404 anche se l'ordine esiste ma non è dell'utente: non ne riveliamo l'esistenza.
+            if (!await CanManageOrderAsync(id) || !await _orderService.SoftDeleteAsync(id))
+                return this.ApiProblem(StatusCodes.Status404NotFound, "not_found", "Ordine non trovato o già annullato.");
 
-                var success = await _orderService.SoftDeleteAsync(id);
-                if (success)
-                {
-                    return Ok(new { message = "Order correctly deleted." });
-                }
-                else
-                {
-                    return NotFound(new { message = "Order not found or already deleted" });
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "An error occurred while soft-deleting the order.");
-                return StatusCode(500, "Internal server error.");
-            }
+            return Ok(new { message = "Order correctly deleted." });
         }
 
         [HttpPut("{id}/restore")]
         [Authorize]
         public async Task<IActionResult> RestoreOrder(int id)
         {
-            try
-            {
-                if (!await CanManageOrderAsync(id))
-                    return NotFound(new { message = "Order not found or already active" });
+            // Stock insufficiente: 409 insufficient_stock (InsufficientStockException, GlobalExceptionHandler).
+            if (!await CanManageOrderAsync(id) || !await _orderService.RestoreAsync(id))
+                return this.ApiProblem(StatusCodes.Status404NotFound, "not_found", "Ordine non trovato o già attivo.");
 
-                var success = await _orderService.RestoreAsync(id);
-                if (success)
-                {
-                    return Ok(new { message = "Order correctly restored." });
-                }
-                else
-                {
-                    return NotFound(new { message = "Order not found or already active" });
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "An error occurred while restoring the order.");
-                return StatusCode(500, "Internal server error.");
-            }
+            return Ok(new { message = "Order correctly restored." });
         }
     }
 

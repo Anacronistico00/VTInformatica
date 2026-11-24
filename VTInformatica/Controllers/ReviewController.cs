@@ -2,15 +2,15 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
-using System.Security.Claims;
 using VTInformatica.DTOs.Review;
+using VTInformatica.Errors;
 using VTInformatica.Extensions;
 using VTInformatica.Interfaces;
-using VTInformatica.Models;
-using VTInformatica.Services;
 
 namespace VTInformatica.Controllers
 {
+    // Le eccezioni le gestisce GlobalExceptionHandler. I catch di UnauthorizedAccessException
+    // sono una scelta per endpoint: update altrui → 403, delete altrui → 404.
     [Route("[controller]")]
     [ApiController]
     [Authorize]
@@ -27,44 +27,28 @@ namespace VTInformatica.Controllers
         [Authorize(Roles = "Admin,Seller")]
         public async Task<IActionResult> GetAll()
         {
-            try
+            var reviews = await _service.GetAllAsync();
+            return Ok(new GetReviewsResponseDto
             {
-                var reviews = await _service.GetAllAsync();
-                return Ok(new GetReviewsResponseDto
-                {
-                    Message = "All reviews correctly get",
-                    Reviews = reviews
-                });
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error fetching all reviews");
-                return StatusCode(500, "Internal server error.");
-            }
+                Message = "All reviews correctly get",
+                Reviews = reviews
+            });
         }
 
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin,Seller")]
         public async Task<IActionResult> GetById(int id)
         {
-            try
+            var review = await _service.GetByIdAsync(id);
+            if (review == null)
             {
-                var review = await _service.GetByIdAsync(id);
-                if (review == null)
-                {
-                    return NotFound();
-                }
-                return Ok(new GetReviewByIdResponseDto
-                {
-                    Message = "All reviews correctly get",
-                    Review = review
-                });
+                return NotFound();
             }
-            catch (Exception ex)
+            return Ok(new GetReviewByIdResponseDto
             {
-                Log.Error(ex, "Error fetching review");
-                return StatusCode(500, "Internal server error.");
-            }
+                Message = "All reviews correctly get",
+                Review = review
+            });
         }
 
         [HttpPost]
@@ -76,36 +60,29 @@ namespace VTInformatica.Controllers
             var loggedEmail = User.GetEmail();
             if (string.IsNullOrEmpty(loggedUserId) || string.IsNullOrEmpty(loggedEmail))
             {
-                return Unauthorized(new { message = "User not logged in." });
+                return NotLoggedIn();
             }
 
             dto.UserId = loggedUserId;
             dto.Email = loggedEmail;
 
-            try
-            {
-                var created = await _service.CreateAsync(dto);
-                return CreatedAtAction(nameof(GetById), new { id = created.ReviewId }, created);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error creating review");
-                return StatusCode(500, "Internal server error.");
-            }
+            // ProductId inesistente: 404 product_not_found (ProductNotFoundException, GlobalExceptionHandler).
+            var created = await _service.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetById), new { id = created.ReviewId }, created);
         }
 
         [HttpPut("{id}")]
         [Authorize]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateReviewDto dto)
         {
+            var loggedUserId = User.GetUserId();
+            if (string.IsNullOrEmpty(loggedUserId))
+            {
+                return NotLoggedIn();
+            }
+
             try
             {
-                var loggedUserId = User.GetUserId();
-                if (string.IsNullOrEmpty(loggedUserId))
-                {
-                    return Unauthorized(new { message = "User not logged in." });
-                }
-
                 var success = await _service.UpdateAsync(id, dto, loggedUserId);
                 return success ? NoContent() : NotFound();
             }
@@ -114,39 +91,35 @@ namespace VTInformatica.Controllers
                 Log.Warning(ex, "Unauthorized update attempt");
                 return Forbid();
             }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error updating review");
-                return StatusCode(500, "Internal server error.");
-            }
         }
 
         [HttpDelete("{id}")]
         [Authorize]
         public async Task<IActionResult> Delete(int id)
         {
+            var loggedUserId = User.GetUserId();
+            if (string.IsNullOrEmpty(loggedUserId))
+            {
+                return NotLoggedIn();
+            }
+
             try
             {
-                var loggedUserId = User.GetUserId();
-                if (string.IsNullOrEmpty(loggedUserId))
-                {
-                    return Unauthorized(new { message = "User not logged in." });
-                }
-
                 var success = await _service.DeleteAsync(id, loggedUserId);
-                return success ? Ok(new { message = "Comment correctly deleted!"}) : NotFound(new { message = "Review not found." });
+                return success ? Ok(new { message = "Comment correctly deleted!" }) : ReviewNotFound();
             }
             catch (UnauthorizedAccessException ex)
             {
                 // 404 e non 403: non riveliamo l'esistenza della review di un altro utente.
                 Log.Warning(ex, "Unauthorized delete attempt");
-                return NotFound(new { message = "Review not found." });
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error deleting review");
-                return StatusCode(500, "Internal server error.");
+                return ReviewNotFound();
             }
         }
+
+        private ObjectResult ReviewNotFound() =>
+            this.ApiProblem(StatusCodes.Status404NotFound, "not_found", "Recensione non trovata.");
+
+        private ObjectResult NotLoggedIn() =>
+            this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
     }
 }

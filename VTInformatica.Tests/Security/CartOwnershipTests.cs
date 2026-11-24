@@ -9,7 +9,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Security;
 
 /// <summary>
-/// Controllo di proprietà sul carrello (audit #2, esteso al carrello in M1c).
+/// Controllo di proprietà sul carrello (AUDIT #2).
 /// Scenario: A ha nel carrello 3 pezzi di un prodotto, B è un altro utente autenticato.
 /// </summary>
 [Collection(ApiCollection.Name)]
@@ -26,7 +26,7 @@ public class CartOwnershipTests
     [Fact]
     public async Task GetCart_OtherUsersCart_Returns403()
     {
-        // AUDIT #2 risolto in M1c: l'email della route deve coincidere con quella del JWT.
+        // AUDIT #2: l'email della route deve coincidere con quella del JWT.
         var (emailA, _, _) = await CreateUserWithCartItemAsync();
         var clientB = await CreateOtherUserClientAsync();
 
@@ -38,7 +38,7 @@ public class CartOwnershipTests
     [Fact]
     public async Task AddItem_OtherUsersCart_Returns403()
     {
-        // AUDIT #2 risolto in M1c: B non può aggiungere articoli al carrello di A.
+        // AUDIT #2: B non può aggiungere articoli al carrello di A.
         var (emailA, _, _) = await CreateUserWithCartItemAsync();
         var otherProductId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var clientB = await CreateOtherUserClientAsync();
@@ -54,7 +54,7 @@ public class CartOwnershipTests
     [Fact]
     public async Task ClearCart_OtherUsersCart_Returns403()
     {
-        // AUDIT #2 risolto in M1c: B non può svuotare il carrello di A.
+        // AUDIT #2: B non può svuotare il carrello di A.
         var (emailA, _, _) = await CreateUserWithCartItemAsync();
         var clientB = await CreateOtherUserClientAsync();
 
@@ -68,7 +68,7 @@ public class CartOwnershipTests
     [Fact]
     public async Task RemoveItem_OtherUsersItem_Returns404()
     {
-        // AUDIT #2 risolto in M1c: l'item deve appartenere al carrello di chi chiama.
+        // AUDIT #2: l'item deve appartenere al carrello di chi chiama.
         // 404 e non 403, per non rivelare l'esistenza dell'item.
         var (_, _, itemIdA) = await CreateUserWithCartItemAsync();
         var emailB = TestHelpers.UniqueEmail();
@@ -88,7 +88,7 @@ public class CartOwnershipTests
     [Fact]
     public async Task RemoveItemQuantity_OtherUsersItem_Returns404()
     {
-        // AUDIT #2 risolto in M1c: stesso controllo di proprietà di RemoveItem.
+        // AUDIT #2: stesso controllo di proprietà di RemoveItem.
         var (_, _, itemIdA) = await CreateUserWithCartItemAsync();
         var clientB = await CreateOtherUserClientAsync();
 

@@ -6,20 +6,20 @@ namespace VTInformatica.DTOs.Account
     {
         [Required]
         [EmailAddress]
-        public string Email { get; set; }
+        public string Email { get; set; } = null!;
 
         [Required]
-        public string Password { get; set; }
+        public string Password { get; set; } = null!;
 
         [Required]
-        public string FirstName { get; set; }
+        public string FirstName { get; set; } = null!;
 
         [Required]
-        public string LastName { get; set; }
+        public string LastName { get; set; } = null!;
 
         [Required]
         public DateOnly BirthDate { get; set; }
 
-        public bool IsActive { get; set; } = true;
+        // IsActive non è un campo del client: lo decide il server (se inviato, viene ignorato).
     }
 }

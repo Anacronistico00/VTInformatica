@@ -147,8 +147,8 @@ public class ReviewOwnershipTests
     }
 
     /// <summary>
-    /// Crea una review con commento "Originale" come fa il FE oggi (identità propria anche nel body),
-    /// così l'helper funziona sia prima sia dopo il fix.
+    /// Crea una review con commento "Originale" come fa il FE (identità propria anche nel body):
+    /// il body non decide l'identità, che viene sempre dal token.
     /// </summary>
     private async Task<int> CreateOwnReviewAsync((string Email, string Id, HttpClient Client) user)
     {

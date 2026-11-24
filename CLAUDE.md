@@ -41,6 +41,8 @@
 - Async/await ovunque. Date in UTC (`DateTime.UtcNow`).
 - Log con Serilog (`Log.Error(ex, ...)`), mai swallow silenzioso delle
   eccezioni.
+- I commenti spiegano il perché del codice attuale, mai la sua storia: niente
+  "prima era...", "fix di...", riferimenti a milestone.
 
 ## Regole di lavoro
 
@@ -67,3 +69,5 @@
   di milestone
 - Mai push o merge diretti su `master` o `develop`
 - La CI (`build-and-test`) deve essere verde prima di ogni merge
+- Non aggiungere mai Co-Authored-By, 'Generated with Claude Code' né link di
+  sessione Claude a commit, PR o file.

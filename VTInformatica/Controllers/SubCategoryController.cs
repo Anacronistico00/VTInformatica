@@ -1,12 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Serilog;
 using VTInformatica.DTOs.SubCategory;
 using VTInformatica.Interfaces;
 
 namespace VTInformatica.Controllers
 {
+    // Le eccezioni le gestisce GlobalExceptionHandler.
+    // NotFound() senza corpo diventa ProblemDetails not_found (ApiController + ApiProblems.Customize).
     [Route("[controller]")]
     [ApiController]
     [Authorize(Roles = "Admin,Seller")]
@@ -23,77 +24,38 @@ namespace VTInformatica.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GetAll()
         {
-            try
-            {
-                var subCategories = await _subCategoryService.GetAllAsync();
-                return Ok(subCategories);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during GetAll for SubCategories");
-                return StatusCode(500, "Internal server error.");
-            }
+            var subCategories = await _subCategoryService.GetAllAsync();
+            return Ok(subCategories);
         }
 
         [HttpGet("{id}")]
         [AllowAnonymous]
         public async Task<IActionResult> GetSubCategory(int id)
         {
-            try
-            {
-                var subCategory = await _subCategoryService.GetByIdAsync(id);
-                return subCategory == null ? NotFound() : Ok(subCategory);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during GetSubCategory");
-                return StatusCode(500, "Internal server error.");
-            }
+            var subCategory = await _subCategoryService.GetByIdAsync(id);
+            return subCategory == null ? NotFound() : Ok(subCategory);
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] SubCategoryDto dto)
         {
-            try
-            {
-                var newSubCategory = await _subCategoryService.CreateAsync(dto);
-                return CreatedAtAction(nameof(GetSubCategory), new { id = newSubCategory.Id }, newSubCategory);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during Create for SubCategory");
-                return StatusCode(500, "Internal server error.");
-            }
+            var newSubCategory = await _subCategoryService.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetSubCategory), new { id = newSubCategory.Id }, newSubCategory);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] SubCategoryDto dto)
         {
-            try
-            {
-                var success = await _subCategoryService.UpdateAsync(id, dto);
-                return success ? NoContent() : NotFound();
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during Update");
-                return StatusCode(500, "Internal server error.");
-            }
+            var success = await _subCategoryService.UpdateAsync(id, dto);
+            return success ? NoContent() : NotFound();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            try
-            {
-                var success = await _subCategoryService.DeleteAsync(id);
-                return success ? NoContent() : NotFound();
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error during Delete");
-                return StatusCode(500, "Internal server error.");
-            }
+            // Prodotti collegati (anche eliminati): 409 resource_in_use dal service.
+            var success = await _subCategoryService.DeleteAsync(id);
+            return success ? NoContent() : NotFound();
         }
     }
 }

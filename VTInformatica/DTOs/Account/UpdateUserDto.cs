@@ -2,9 +2,11 @@
 {
     public class UpdateUserDto
     {
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string Email { get; set; }
+        // Corpo della richiesta: se manca il campo resta null e la validazione risponde 400.
+        public string FirstName { get; set; } = null!;
+        public string LastName { get; set; } = null!;
+        // Opzionale e non modificabile: se presente deve coincidere con quella attuale (altrimenti 400).
+        public string? Email { get; set; }
         public DateOnly BirthDate { get; set; }
     }
 }

@@ -1,12 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Serilog;
 using VTInformatica.Data;
 using VTInformatica.DTOs.Manufacturer;
+using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
+using VTInformatica.Mapping;
 using VTInformatica.Models;
 
 namespace VTInformatica.Services
 {
+    // Le eccezioni le logga una sola volta GlobalExceptionHandler.
     public class ManufacturerService : IManufacturerService
     {
         private readonly ApplicationDbContext _context;
@@ -17,115 +19,65 @@ namespace VTInformatica.Services
 
         public async Task<GetManufacturerResponseDto> GetAllAsync()
         {
-            try
-            {
-                var manufacturers = await _context.Manufacturers
-                    .Select(m => new ManufacturerDto
-                    {
-                        ManufacturerId = m.ManufacturerId,
-                        ManufacturerName = m.ManufacturerName,
-                        ManufacturerLogo = m.ManufacturerLogo
-                    }).ToListAsync();
+            var manufacturers = await _context.Manufacturers
+                .Select(ManufacturerMapper.Projection).ToListAsync();
 
-                return new GetManufacturerResponseDto
-                {
-                    Message = "Manufacturers retrieved successfully",
-                    Manufacturers = manufacturers
-                };
-            }
-            catch (Exception ex)
+            return new GetManufacturerResponseDto
             {
-                Log.Error(ex, "Error fetching all manufacturers");
-                throw;
-            }
+                Message = "Manufacturers retrieved successfully",
+                Manufacturers = manufacturers
+            };
         }
 
         public async Task<ManufacturerDto?> GetByIdAsync(int id)
         {
-            try
-            {
-                var manufacturer = await _context.Manufacturers
-                    .FirstOrDefaultAsync(m => m.ManufacturerId == id);
-                if (manufacturer == null) return null;
-
-                return new ManufacturerDto
-                {
-                    ManufacturerId = manufacturer.ManufacturerId,
-                    ManufacturerName = manufacturer.ManufacturerName,
-                    ManufacturerLogo = manufacturer.ManufacturerLogo
-                };
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, $"Error fetching manufacturer with id {id}");
-                throw;
-            }
+            return await _context.Manufacturers
+                .Where(m => m.ManufacturerId == id)
+                .Select(ManufacturerMapper.Projection)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<ManufacturerDto> CreateAsync(CreateManufacturerDto dto)
         {
-            try
+            var manufacturer = new Manufacturer
             {
-                var manufacturer = new Manufacturer
-                {
-                    ManufacturerName = dto.ManufacturerName,
-                    ManufacturerLogo = dto.ManufacturerLogo,
-                    Products = new List<Product>()
-                };
+                ManufacturerName = dto.ManufacturerName,
+                ManufacturerLogo = dto.ManufacturerLogo,
+                Products = new List<Product>()
+            };
 
-                _context.Manufacturers.Add(manufacturer);
-                await _context.SaveChangesAsync();
+            _context.Manufacturers.Add(manufacturer);
+            await _context.SaveChangesAsync();
 
-                return new ManufacturerDto
-                {
-                    ManufacturerId = manufacturer.ManufacturerId,
-                    ManufacturerName = manufacturer.ManufacturerName,
-                    ManufacturerLogo = manufacturer.ManufacturerLogo
-                };
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error creating manufacturer");
-                throw;
-            }
+            return ManufacturerMapper.ToDto(manufacturer);
         }
 
         public async Task<bool> UpdateAsync(int id, ManufacturerDto dto)
         {
-            try
-            {
-                var manufacturer = await _context.Manufacturers.FindAsync(id);
-                if (manufacturer == null) return false;
+            var manufacturer = await _context.Manufacturers.FindAsync(id);
+            if (manufacturer == null) return false;
 
-                manufacturer.ManufacturerName = dto.ManufacturerName;
-                manufacturer.ManufacturerLogo = dto.ManufacturerLogo;
+            manufacturer.ManufacturerName = dto.ManufacturerName;
+            manufacturer.ManufacturerLogo = dto.ManufacturerLogo;
 
-                await _context.SaveChangesAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, $"Error updating manufacturer with id {id}");
-                throw;
-            }
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         public async Task<bool> DeleteAsync(int id)
         {
-            try
-            {
-                var manufacturer = await _context.Manufacturers.FindAsync(id);
-                if (manufacturer == null) return false;
+            var manufacturer = await _context.Manufacturers.FindAsync(id);
+            if (manufacturer == null) return false;
 
-                _context.Manufacturers.Remove(manufacturer);
-                await _context.SaveChangesAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, $"Error deleting manufacturer with id {id}");
-                throw;
-            }
+            // Verifica esplicita invece di affidarsi all'errore FK del DB (indipendente dal provider).
+            // IgnoreQueryFilters: contano anche i prodotti eliminati, che mantengono lo storico ordini.
+            if (await _context.Products.IgnoreQueryFilters().AnyAsync(p => p.ManufacturerId == id))
+                throw new ResourceInUseException(
+                    "Il produttore ha prodotti collegati (compresi quelli eliminati, che mantengono lo storico ordini): non può essere eliminato.");
+
+            _context.Manufacturers.Remove(manufacturer);
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

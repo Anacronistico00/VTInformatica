@@ -7,7 +7,7 @@ namespace VTInformatica.Models
     {
         public int Id { get; set; }
 
-        public string Email { get; set; }
+        public string Email { get; set; } = string.Empty;
 
         public string? UserId { get; set; }
 
@@ -17,8 +17,5 @@ namespace VTInformatica.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<CartItem> Items { get; set; } = new List<CartItem>();
-        
-        public decimal? TotalPrice { get; set; }
-
     }
 }
