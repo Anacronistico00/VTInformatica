@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using System.Security.Claims;
 using System.Text;
 using VTInformatica.Data;
 using VTInformatica.Interfaces;
@@ -112,6 +113,23 @@ try
                ValidAudience = builder.Configuration.GetSection(nameof(Jwt)).GetValue<string>("Audience"),
 
                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+           };
+
+           // Firma e scadenza non bastano: il token di un utente disattivato o cancellato
+           // non deve più autenticare (→ 401). Una lettura dell'utente per richiesta autenticata.
+           options.Events = new JwtBearerEvents
+           {
+               OnTokenValidated = async context =>
+               {
+                   var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                   var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+                   var user = userId == null ? null : await userManager.FindByIdAsync(userId);
+
+                   if (user == null || !user.IsActive)
+                   {
+                       context.Fail("Utente inesistente o disattivato.");
+                   }
+               }
            };
        });
 
