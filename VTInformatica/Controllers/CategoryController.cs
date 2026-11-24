@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Serilog;
 using VTInformatica.DTOs.Category;
+using VTInformatica.Errors;
 using VTInformatica.Interfaces;
 
 namespace VTInformatica.Controllers
@@ -23,85 +23,41 @@ namespace VTInformatica.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GetAll()
         {
-            try
-            {
-                var categories = await _categoryService.GetAllAsync();
-                if (categories == null)
-                {
-                    return NotFound(new { message = "Categories not found." });
-                }
-                return Ok(categories);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error while fetching all categories.");
-                return StatusCode(500, "Internal server error.");
-            }
+            // Lista vuota = 200 []. Le eccezioni le gestisce GlobalExceptionHandler.
+            return Ok(await _categoryService.GetAllAsync());
         }
 
         [HttpGet("{id}")]
         [AllowAnonymous]
         public async Task<IActionResult> Get(int id)
         {
-            try
-            {
-                var category = await _categoryService.GetByIdAsync(id);
-                if (category == null)
-                {
-                    return NotFound(new { message = "Category not found." });
-                }
-                return Ok(category);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error while fetching category");
-                return StatusCode(500, "Internal server error.");
-            }
+            var category = await _categoryService.GetByIdAsync(id);
+            if (category == null)
+                return this.ApiProblem(StatusCodes.Status404NotFound, "not_found", "Categoria non trovata.");
+
+            return Ok(category);
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CategoryDto dto)
         {
-            try
-            {
-                var created = await _categoryService.CreateAsync(dto);
-                return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error while creating category.");
-                return StatusCode(500, "Internal server error.");
-            }
+            var created = await _categoryService.CreateAsync(dto);
+            return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] EditCategoryDto dto)
         {
-            try
-            {
-                var success = await _categoryService.UpdateAsync(id, dto);
-                return success ? NoContent() : NotFound();
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error while updating category");
-                return StatusCode(500, "Internal server error.");
-            }
+            var success = await _categoryService.UpdateAsync(id, dto);
+            return success ? NoContent() : NotFound();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            try
-            {
-                var success = await _categoryService.DeleteAsync(id);
-                return success ? NoContent() : NotFound();
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error while deleting category");
-                return StatusCode(500, "Internal server error.");
-            }
+            // Sottocategorie o prodotti collegati (anche eliminati): 409 resource_in_use dal service.
+            var success = await _categoryService.DeleteAsync(id);
+            return success ? NoContent() : NotFound();
         }
     }
 
