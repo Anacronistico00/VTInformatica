@@ -62,13 +62,13 @@ namespace VTInformatica.Controllers
 
         [HttpPost("me/from-cart")]
         [Authorize]
-        public async Task<IActionResult> CreateMyOrderFromCart()
+        public async Task<IActionResult> CreateMyOrderFromCart([FromBody] CreateOrderFromCartDto? dto = null)
         {
             var email = User.GetEmail();
             if (string.IsNullOrEmpty(email))
                 return this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
 
-            return await CreateOrderCore(email);
+            return await CreateOrderCore(email, dto);
         }
 
         [Obsolete("Usare GET /Order/me: l'identità arriva dal token.")]
@@ -85,20 +85,20 @@ namespace VTInformatica.Controllers
         [Obsolete("Usare POST /Order/me/from-cart: l'identità arriva dal token.")]
         [HttpPost("from-cart/{userEmail}")]
         [Authorize]
-        public async Task<IActionResult> CreateOrderFromCart(string userEmail)
+        public async Task<IActionResult> CreateOrderFromCart(string userEmail, [FromBody] CreateOrderFromCartDto? dto = null)
         {
             // Nessuna eccezione per Admin/Seller: si ordina solo dal proprio carrello.
             if (!User.HasEmail(userEmail))
                 return Forbid();
 
-            return await CreateOrderCore(userEmail);
+            return await CreateOrderCore(userEmail, dto);
         }
 
-        private async Task<IActionResult> CreateOrderCore(string email)
+        private async Task<IActionResult> CreateOrderCore(string email, CreateOrderFromCartDto? dto)
         {
             // Carrello vuoto (409), prodotto inesistente (404) e stock insufficiente (409) sono
             // eccezioni di dominio: le traduce GlobalExceptionHandler.
-            var order = await _orderService.CreateOrderFromCartAsync(email);
+            var order = await _orderService.CreateOrderFromCartAsync(email, dto?.CustomerComment);
             return CreatedAtAction(nameof(Get), new { id = order.Id }, order);
         }
 
