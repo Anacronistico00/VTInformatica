@@ -116,6 +116,42 @@ namespace VTInformatica.Controllers
                 return AccountInactive(user);
             }
 
+            return Ok(await CreateTokenAsync(user));
+        }
+
+        // Riattivazione self-service: solo per chi ha disattivato da sé il proprio account (Reason=User).
+        // Stesse regole del login: password verificata con lockout prima di rivelare lo stato.
+        [HttpPost("reactivate")]
+        public async Task<IActionResult> Reactivate(LoginRequestDto dto)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null)
+            {
+                return InvalidCredentials();
+            }
+
+            var result = await _signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
+            if (!result.Succeeded)
+            {
+                return InvalidCredentials();
+            }
+
+            if (!user.IsActive)
+            {
+                if (user.DeactivationReason != DeactivationReason.User)
+                {
+                    // Sospeso da un Admin: solo un Admin può revocare (403 account_suspended).
+                    return AccountInactive(user);
+                }
+
+                await _accountService.ReactivateAsync(user);
+            }
+
+            return Ok(await CreateTokenAsync(user));
+        }
+
+        private async Task<TokenResponseDto> CreateTokenAsync(ApplicationUser user)
+        {
             var roles = await _signInManager.UserManager.GetRolesAsync(user);
 
             List<Claim> claims = new List<Claim>();
@@ -138,11 +174,11 @@ namespace VTInformatica.Controllers
 
             string tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
-            return Ok(new TokenResponseDto()
+            return new TokenResponseDto()
             {
                 Token = tokenString,
                 Expires = expiry
-            });
+            };
         }
 
         [HttpGet("UsersList")]
