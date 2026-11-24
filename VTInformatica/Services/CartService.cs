@@ -24,25 +24,16 @@ namespace VTInformatica.Services
 
         public async Task<GetCartDto?> GetCartByEmailAsync(string email)
         {
-            var cart = await _context.Carts
+            var cart = await _context.Carts.AsNoTracking()
                 .Include(c => c.Items)
                 .ThenInclude(i => i.Product)
                     .ThenInclude(p => p.ProductImages)
                 .FirstOrDefaultAsync(c => c.Email == email);
 
-            var loggedInUser = await _userManager.FindByEmailAsync(email);
-
-            if (loggedInUser == null)
-            {
-                throw new InvalidOperationException("User not found.");
-            }
-
-            var userId = loggedInUser.Id;
-
+            // Lettura pura: un utente senza carrello ne ha uno vuoto, la riga nasce alla prima aggiunta.
             if (cart == null)
             {
-                cart = new Cart { Email = email, Items = new List<CartItem>(), UserId = userId };
-                _context.Carts.Add(cart);
+                return new GetCartDto { Email = email, TotalPrice = 0m, Items = new List<GetCartItemDto>() };
             }
 
             var totalPrice = cart.Items
@@ -125,20 +116,11 @@ namespace VTInformatica.Services
             }
             await _context.SaveChangesAsync();
 
-            var updatedCart = await _context.Carts
-                .Include(c => c.Items).ThenInclude(i => i.Product)
-                .FirstOrDefaultAsync(c => c.Email == email);
-
-            var totalPrice = updatedCart.Items
-                .Where(i => i.Product != null)
-                .Sum(i => i.Quantity * i.Product.Price);
-
-            updatedCart.TotalPrice = totalPrice;
-
-            await _context.SaveChangesAsync();
-
             return await GetCartByEmailAsync(email);
         }
+
+        public Task<bool> ItemBelongsToAsync(int cartItemId, string email) =>
+            _context.CartItems.AnyAsync(i => i.Id == cartItemId && i.Cart.Email == email);
 
         public async Task<bool> RemoveItemAsync(int cartItemId)
         {
