@@ -74,6 +74,13 @@ namespace VTInformatica.Data
             modelBuilder.Entity<CartItem>().HasOne(ci => ci.Cart).WithMany(c => c.Items).HasForeignKey(ci => ci.CartId);
             modelBuilder.Entity<CartItem>().HasOne(ci => ci.Product).WithMany(p => p.CartItems).HasForeignKey(ci => ci.ProductId);
 
+            // Lo storico ordini non deve mai essere cancellato insieme al prodotto (prima: cascade per convenzione).
+            modelBuilder.Entity<OrderItem>().HasOne(oi => oi.Product).WithMany(p => p.Orders).HasForeignKey(oi => oi.ProductId).OnDelete(DeleteBehavior.Restrict);
+
+            // Prodotti eliminati (soft delete) esclusi da tutte le query. Le query sugli ordini
+            // usano IgnoreQueryFilters: OrderItem→Product è required e il filtro nasconderebbe le righe.
+            modelBuilder.Entity<Product>().HasQueryFilter(p => !p.IsDeleted);
+
             modelBuilder.Entity<Product>().HasOne(p => p.Category).WithMany(c => c.Products).HasForeignKey(p => p.CategoryId).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<Product>().HasOne(p => p.SubCategory).WithMany(s => s.Products).HasForeignKey(p => p.SubCategoryId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<SubCategory>().HasOne(s => s.Category).WithMany(c => c.SubCategories).HasForeignKey(s => s.CategoryId).OnDelete(DeleteBehavior.Restrict);

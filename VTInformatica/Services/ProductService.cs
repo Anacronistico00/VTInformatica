@@ -147,10 +147,28 @@ namespace VTInformatica.Services
 
         public async Task<bool> DeleteAsync(int id)
         {
-            var product = await _context.Products.FindAsync(id);
+            // Il query filter esclude i prodotti già eliminati: un secondo delete risponde 404.
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
             if (product == null) return false;
 
-            _context.Products.Remove(product);
+            product.IsDeleted = true;
+
+            // Il prodotto esce dai carrelli e il totale persistito viene ricalcolato.
+            // Un solo SaveChanges: flag, righe e totali nella stessa transazione.
+            var carts = await _context.Carts
+                .Include(c => c.Items).ThenInclude(i => i.Product)
+                .Where(c => c.Items.Any(i => i.ProductId == id))
+                .ToListAsync();
+
+            foreach (var cart in carts)
+            {
+                var removed = cart.Items.Where(i => i.ProductId == id).ToList();
+                _context.CartItems.RemoveRange(removed);
+                cart.TotalPrice = cart.Items.Except(removed)
+                    .Where(i => i.Product != null)
+                    .Sum(i => i.Quantity * i.Product.Price);
+            }
+
             await _context.SaveChangesAsync();
             return true;
         }
