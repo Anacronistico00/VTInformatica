@@ -413,6 +413,30 @@ public class AccountDeactivationTests
         Assert.False(string.IsNullOrEmpty((await response.Content.ReadFromJsonAsync<VTInformatica.DTOs.Account.TokenResponseDto>())!.Token));
     }
 
+    // ---- GET /Account/UsersList: all'admin serve l'id per /suspend ----
+
+    [Fact]
+    public async Task UsersList_IncludesIdAndDeactivationInfo()
+    {
+        var suspendedEmail = await CreateUserAsync("suspended", note: "Spam nelle recensioni");
+        var activeEmail = await CreateUserAsync("active");
+        var admin = await AdminClientAsync();
+
+        var body = await admin.GetFromJsonAsync<JsonElement>("/Account/UsersList");
+        var users = body.GetProperty("users").EnumerateArray().ToList();
+
+        var suspended = users.Single(u => u.GetProperty("email").GetString() == suspendedEmail);
+        Assert.Equal(await TestHelpers.GetUserIdAsync(_factory, suspendedEmail), suspended.GetProperty("id").GetString());
+        Assert.False(suspended.GetProperty("isActive").GetBoolean());
+        Assert.Equal("Admin", suspended.GetProperty("deactivationReason").GetString());
+        Assert.Equal("Spam nelle recensioni", suspended.GetProperty("deactivationNote").GetString());
+        Assert.Equal(JsonValueKind.String, suspended.GetProperty("deactivatedAt").ValueKind);
+
+        var active = users.Single(u => u.GetProperty("email").GetString() == activeEmail);
+        Assert.Equal(await TestHelpers.GetUserIdAsync(_factory, activeEmail), active.GetProperty("id").GetString());
+        Assert.Equal(JsonValueKind.Null, active.GetProperty("deactivationReason").ValueKind);
+    }
+
     // ---- Helper ----
 
     private Task<HttpResponseMessage> ReactivateAsync(string email, string password) =>
