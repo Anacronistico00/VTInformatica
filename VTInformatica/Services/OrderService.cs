@@ -156,72 +156,71 @@ namespace VTInformatica.Services
         }
 
 
+        // Annulla/ripristina: flag dell'ordine e stock nella stessa transazione, tutto o niente.
+        // Il flag cambia con UPDATE condizionale (WHERE IsDeleted = atteso): due richieste uguali
+        // non rimettono/tolgono lo stock due volte. Lo stock si aggiorna con UPDATE atomici
+        // (Quantity ± n), in ordine di ProductId, senza leggere-e-riscrivere il valore.
         public async Task<bool> SoftDeleteAsync(int orderId)
         {
-            var order = await _context.Orders
-                .IgnoreQueryFilters()
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .FirstOrDefaultAsync(o => o.Id == orderId && !o.IsDeleted);
+            await using var transaction = await _context.Database.BeginTransactionAsync();
 
-            if (order == null)
+            if (!await SetDeletedFlagAsync(orderId, expectedDeleted: false))
             {
                 return false;
             }
 
-            order.IsDeleted = true;
-            _context.Orders.Update(order);
-
-            foreach (var orderItem in order.OrderItems)
+            foreach (var (productId, quantity) in await GetQuantitiesByProductAsync(orderId))
             {
-                var product = orderItem.Product;
-                if (product != null)
-                {
-                    product.Quantity += orderItem.Quantity;
-                    _context.Products.Update(product);
-                }
+                await _context.Products.IgnoreQueryFilters()
+                    .Where(p => p.Id == productId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Quantity, p => p.Quantity + quantity));
             }
 
-            await _context.SaveChangesAsync();
-
+            await transaction.CommitAsync();
             return true;
         }
 
         public async Task<bool> RestoreAsync(int orderId)
         {
-            var order = await _context.Orders
-                .IgnoreQueryFilters()
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .FirstOrDefaultAsync(o => o.Id == orderId && o.IsDeleted);
+            await using var transaction = await _context.Database.BeginTransactionAsync();
 
-            if (order == null)
+            if (!await SetDeletedFlagAsync(orderId, expectedDeleted: true))
             {
                 return false;
             }
 
-            order.IsDeleted = false;
-            _context.Orders.Update(order);
-
-            foreach (var orderItem in order.OrderItems)
+            foreach (var (productId, quantity) in await GetQuantitiesByProductAsync(orderId))
             {
-                var product = orderItem.Product;
-                if (product != null)
+                var updated = await _context.Products.IgnoreQueryFilters()
+                    .Where(p => p.Id == productId && p.Quantity >= quantity)
+                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Quantity, p => p.Quantity - quantity));
+
+                if (updated == 0)
                 {
-                    if (product.Quantity >= orderItem.Quantity)
-                    {
-                        product.Quantity -= orderItem.Quantity;
-                        _context.Products.Update(product);
-                    }
-                    else
-                    {
-                        return false;
-                    }
+                    // 409: il dispose della transazione annulla anche il flag e i decrementi già fatti.
+                    throw new InsufficientStockException(productId);
                 }
             }
 
-            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return true;
+        }
+
+        private async Task<bool> SetDeletedFlagAsync(int orderId, bool expectedDeleted) =>
+            await _context.Orders.IgnoreQueryFilters()
+                .Where(o => o.Id == orderId && o.IsDeleted == expectedDeleted)
+                .ExecuteUpdateAsync(s => s.SetProperty(o => o.IsDeleted, !expectedDeleted)) > 0;
+
+        private async Task<List<(int ProductId, int Quantity)>> GetQuantitiesByProductAsync(int orderId)
+        {
+            var rows = await _context.Set<OrderItem>().IgnoreQueryFilters().AsNoTracking()
+                .Where(oi => oi.OrderId == orderId)
+                .GroupBy(oi => oi.ProductId)
+                .Select(g => new { ProductId = g.Key, Quantity = g.Sum(oi => oi.Quantity) })
+                .OrderBy(r => r.ProductId)
+                .ToListAsync();
+
+            return rows.Select(r => (r.ProductId, r.Quantity)).ToList();
         }
 
 
