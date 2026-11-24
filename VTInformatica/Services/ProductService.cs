@@ -87,12 +87,12 @@ namespace VTInformatica.Services
 
             var product = new Product ()
             {
-                Name = dto.Name,
+                Name = dto.Name.Trim(),
                 ManufacturerId = dto.ManufacturerId,
-                Description = dto.Description,
+                Description = dto.Description.Trim(),
                 Price = dto.Price,
                 Quantity = dto.Quantity,
-                FullDescription = dto.FullDescription,
+                FullDescription = dto.FullDescription?.Trim(),
                 SubCategoryId = dto.SubCategoryId
             };
 
@@ -119,9 +119,9 @@ namespace VTInformatica.Services
             if (product == null) return false;
 
             product.ManufacturerId = dto.ManufacturerId;
-            product.Name = dto.Name;
-            product.Description = dto.Description;
-            product.FullDescription = dto.FullDescription;
+            product.Name = dto.Name.Trim();
+            product.Description = dto.Description.Trim();
+            product.FullDescription = dto.FullDescription?.Trim();
             product.Price = dto.Price;
             if (dto.ExpectedQuantity == null)
             {
