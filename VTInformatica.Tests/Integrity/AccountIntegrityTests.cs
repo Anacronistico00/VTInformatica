@@ -149,6 +149,36 @@ public class AccountIntegrityTests
         Assert.Equal("Mario", (await FindUserAsync(email)).FirstName);
     }
 
+    [Fact]
+    public async Task DeactivatedUser_OldToken_Returns401()
+    {
+        // Il JWT restava valido fino alla scadenza anche dopo la disattivazione dell'account.
+        var email = TestHelpers.UniqueEmail();
+        var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/Cart/{email}")).StatusCode);
+
+        await DeactivateAsync(email);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/Cart/{email}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/Order/user/{email}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task DeletedUser_OldToken_Returns401()
+    {
+        // Un token il cui utente non esiste più non deve autenticare nessuno.
+        var email = TestHelpers.UniqueEmail();
+        var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            Assert.True((await userManager.DeleteAsync((await userManager.FindByEmailAsync(email))!)).Succeeded);
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/Cart/{email}")).StatusCode);
+    }
+
     private async Task DeactivateAsync(string email)
     {
         var admin = TestHelpers.AuthorizedClient(_factory,
