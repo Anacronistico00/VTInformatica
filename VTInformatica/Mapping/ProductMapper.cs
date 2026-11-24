@@ -35,15 +35,14 @@ namespace VTInformatica.Mapping
             SubCategory = ToSubCategoryDto(p.SubCategory),
             ProductImages = ToImageDtos(p),
             Reviews = p.Reviews != null
-                ? p.Reviews.Select(r => new GetReviewDto
+                ? p.Reviews.Select(r => new ProductReviewDto
                 {
                     ReviewId = r.ReviewId,
                     ReviewComment = r.ReviewComment,
                     ReviewRating = r.ReviewRating,
-                    CreatedAt = r.CreatedAt,
-                    CustomerEmail = r.Email
+                    CreatedAt = r.CreatedAt
                 }).ToList()
-                : new List<GetReviewDto>()
+                : new List<ProductReviewDto>()
         };
 
         // Risposta di /Product/category/{id}, /Product/subcategory/{id}, /Product/manufacturer/{id}.

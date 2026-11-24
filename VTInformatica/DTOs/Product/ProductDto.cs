@@ -45,6 +45,6 @@ namespace VTInformatica.DTOs.Product
         public List<ProductImageDto>? ProductImages { get; set; }
 
         [Required]
-        public List<GetReviewDto>? Reviews { get; set; }
+        public List<ProductReviewDto>? Reviews { get; set; }
     }
 }

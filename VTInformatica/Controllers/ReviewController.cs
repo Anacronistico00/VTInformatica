@@ -67,7 +67,7 @@ namespace VTInformatica.Controllers
             dto.UserId = loggedUserId;
             dto.Email = loggedEmail;
 
-            // ProductId inesistente: oggi violazione FK → 500 internal_error (validazione prevista in M3c).
+            // ProductId inesistente: 404 product_not_found (ProductNotFoundException, GlobalExceptionHandler).
             var created = await _service.CreateAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = created.ReviewId }, created);
         }
