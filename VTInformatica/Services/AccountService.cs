@@ -57,6 +57,22 @@ namespace VTInformatica.Services
             return result.Succeeded;
         }
 
+        /// <summary>Il cliente disattiva il proprio account: potrà riattivarlo con la password.</summary>
+        public async Task<bool> DeactivateSelfAsync(string userId, string? note)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return false;
+
+            user.IsActive = false;
+            user.DeactivationReason = DeactivationReason.User;
+            user.DeactivationNote = note;
+            user.DeactivatedAt = DateTime.UtcNow;
+
+            var result = await _userManager.UpdateAsync(user);
+            return result.Succeeded;
+        }
+
         public async Task<bool> DeleteUserAsync(string email)
         {
             var user = await _userManager.FindByEmailAsync(email);
