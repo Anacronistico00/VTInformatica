@@ -64,12 +64,24 @@ namespace VTInformatica.Services
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Riferimenti del corpo di create/update: sottocategoria e produttore devono esistere (400),
+        /// altrimenti la FK fallirebbe al salvataggio con un 500.
+        /// </summary>
+        private async Task<SubCategory> GetReferencedSubCategoryAsync(int subCategoryId, int manufacturerId)
+        {
+            var subCategory = await _context.SubCategories.FirstOrDefaultAsync(sc => sc.Id == subCategoryId)
+                ?? throw new SubCategoryNotFoundException(subCategoryId);
+
+            if (!await _context.Manufacturers.AnyAsync(m => m.ManufacturerId == manufacturerId))
+                throw new ManufacturerNotFoundException(manufacturerId);
+
+            return subCategory;
+        }
+
         public async Task<Product> CreateAsync(CreateProductDto dto)
         {
-            var subCategory = await _context.SubCategories.FirstOrDefaultAsync(sc => sc.Id == dto.SubCategoryId);
-
-            if (subCategory == null)
-                throw new ArgumentException("La sottocategoria specificata non esiste.");
+            var subCategory = await GetReferencedSubCategoryAsync(dto.SubCategoryId, dto.ManufacturerId);
 
             var product = new Product ()
             {
@@ -100,10 +112,7 @@ namespace VTInformatica.Services
 
         public async Task<bool> UpdateAsync(int id, UpdateProductDto dto)
         {
-            var subCategory = await _context.SubCategories.FirstOrDefaultAsync(sc => sc.Id == dto.SubCategoryId);
-
-            if (subCategory == null)
-                throw new ArgumentException("La sottocategoria specificata non esiste.");
+            var subCategory = await GetReferencedSubCategoryAsync(dto.SubCategoryId, dto.ManufacturerId);
 
             var product = await _context.Products.Include(p => p.ProductImages).FirstOrDefaultAsync(p => p.Id == id);
             if (product == null) return false;
