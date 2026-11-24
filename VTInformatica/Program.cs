@@ -191,14 +191,21 @@ try
     app.Run();
 
 }
-catch (Exception ex)
+// HostAbortedException non è un errore: è il modo in cui gli strumenti EF (migrations add,
+// has-pending-model-changes) fermano l'host dopo averlo costruito. Va lasciata propagare.
+catch (Exception ex) when (ex is not HostAbortedException)
 {
-    Log.Error(ex.Message);
+    // Avvio fallito: log completo (stack compreso) ed exit code 1, così orchestratori e CI
+    // vedono il fallimento (prima: solo ex.Message e uscita con 0).
+    Log.Fatal(ex, "Avvio dell'applicazione fallito.");
+    return 1;
 }
 finally
 {
     await Log.CloseAndFlushAsync();
 }
+
+return 0;
 
 // Esposto per WebApplicationFactory<Program> nei test di integrazione.
 public partial class Program { }
