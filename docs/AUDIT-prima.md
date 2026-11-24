@@ -272,12 +272,12 @@ Branch `fix/m3a1-product-integrity`, test-first. Chiude i fuori scope M2 n. 1,
 Branch `fix/m3a2-account-integrity`, test-first. Chiude #9 e due finding emersi
 in M1.
 
-| Voce                                        | Stato  | Come                                                                                                                                       |
-| ------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| 9 Register su email disattivata             | Chiuso | Stessa risposta 400 "Email già registrata" dell'email attiva: nessuna sovrascrittura del profilo, lo stato dell'account non viene rivelato |
-| 9 `IsActive` dal client                     | Chiuso | Rimosso da `RegisterRequestDto`, deciso dal server (campo eventualmente inviato dal FE ignorato)                                           |
-| UpdateUser cambia Email                     | Chiuso | Email opzionale e non modificabile: se diversa da quella attuale → 400. Carrello e ordini restano raggiungibili                            |
-| Token validi per utenti disattivati         | Chiuso | `JwtBearerEvents.OnTokenValidated`: utente inesistente o disattivato → 401, effetto immediato                                              |
+| Voce                                | Stato  | Come                                                                                                                                       |
+| ----------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 9 Register su email disattivata     | Chiuso | Stessa risposta 400 "Email già registrata" dell'email attiva: nessuna sovrascrittura del profilo, lo stato dell'account non viene rivelato |
+| 9 `IsActive` dal client             | Chiuso | Rimosso da `RegisterRequestDto`, deciso dal server (campo eventualmente inviato dal FE ignorato)                                           |
+| UpdateUser cambia Email             | Chiuso | Email opzionale e non modificabile: se diversa da quella attuale → 400. Carrello e ordini restano raggiungibili                            |
+| Token validi per utenti disattivati | Chiuso | `JwtBearerEvents.OnTokenValidated`: utente inesistente o disattivato → 401, effetto immediato                                              |
 
 - Test: 70 → 77. Warning di build: 110 → 109.
 - I nomi mancanti in UpdateUser erano già rifiutati (stringhe non-nullable con
@@ -288,22 +288,23 @@ in M1.
 - **FE (M4)**: gestire 401 su qualsiasi chiamata autenticata (account
   disattivato) con logout; non inviare più `IsActive` nella registrazione.
 
-### Prossima fetta: disattivazione, ban e riattivazione (`feat/account-reactivation`)
+### Prossima fetta: disattivazione, sospensione e riattivazione (`feat/account-reactivation`)
 
 Solo documentata, da pianificare dopo M3a2. Oggi esiste solo la disattivazione
 da Admin (`PUT /Account/DeleteUserByEmail/{email}`), senza motivo né modo di
-tornare indietro.
+tornare indietro. (Terminologia aggiornata: "ban" → "sospensione", vedi lo stato
+avanzamento più sotto.)
 
 - **Nuovi campi su `ApplicationUser`** (migration): `DeactivationReason`
-  (User/Admin), `DeactivationNote` (testo, max 500; obbligatorio per il ban,
-  facoltativo per la cancellazione del cliente), `DeactivatedAt` (UTC).
-  Azzerati alla riattivazione.
+  (User/Admin), `DeactivationNote` (testo, max 500; obbligatorio per la
+  sospensione, facoltativo per la cancellazione del cliente), `DeactivatedAt`
+  (UTC). Azzerati alla riattivazione.
 - **`DELETE /Account/{id}`** del cliente su se stesso → Reason=User, nota
   facoltativa. DELETE di un admin su un altro utente: da decidere nel piano
-  (proposta: rifiutato, usare `/ban`).
-- **Ban**: `PUT /Account/{id}/ban {note}` e `PUT /Account/{id}/unban`, solo
-  Admin. Effetto immediato grazie al controllo del token di M3a2. Un admin non
-  può bannare se stesso.
+  (proposta: rifiutato, usare `/suspend`).
+- **Sospensione**: `PUT /Account/{id}/suspend {note}` e
+  `PUT /Account/{id}/unsuspend`, solo Admin. Effetto immediato grazie al
+  controllo del token di M3a2. Un admin non può sospendere se stesso.
 - **Login con password corretta**: Reason=User → 403 `account_deactivated`;
   Reason=Admin → 403 `account_suspended` (messaggio generico, la nota non viene
   mostrata al cliente). Password errata o email inesistente → 401 generico.
@@ -312,7 +313,7 @@ tornare indietro.
   Riattiva e restituisce il token.
 - **FE (M4)**: pagina di riattivazione con conferma e pagina di benvenuto;
   messaggio di negazione per account sospeso; campo motivo facoltativo nella
-  cancellazione account; nota obbligatoria nel ban admin.
+  cancellazione account; nota obbligatoria nella sospensione da admin.
 
 Decisioni prese (2026-11-24):
 
@@ -321,15 +322,15 @@ Decisioni prese (2026-11-24):
    `account_suspended` vanno restituiti solo con password corretta, altrimenti
    401 generico (nessuna enumerazione dello stato dell'account).
 2. **`PUT /Account/DeleteUserByEmail/{email}` sostituito da
-   `PUT /Account/{id}/ban`.**
+   `PUT /Account/{id}/suspend`.**
 3. **Utenti già disattivati** al momento della migration →
    `DeactivationReason = Admin` (l'unico modo di disattivare esistente finora).
 
 ## Fuori scope per M3d emersi dallo smoke test di M3a1 (non toccati)
 
 1. **`manufacturer.manufacturerId` sempre 0** nella risposta di `GET /Product`:
-   il DTO annidato `ManufacturerDto.ManufacturerId` non viene mai valorizzato dal
-   mapping (es. `ProductController.cs`), mentre `product.manufacturerId` è
+   il DTO annidato `ManufacturerDto.ManufacturerId` non viene mai valorizzato
+   dal mapping (es. `ProductController.cs`), mentre `product.manufacturerId` è
    corretto. Rientra nella centralizzazione dei mapping (#13).
 2. **Nome prodotto con spazi iniziali**: il prodotto 18 è
    `"    Intel Core i9-14900K (3,2 GHz / 5,8 GHz)"`. Il dato arriva da
@@ -337,6 +338,79 @@ Decisioni prese (2026-11-24):
    `Name` (e `Description`), quindi lo stesso problema può arrivare dall'API.
    Fix: Trim in create/update e correzione del dato esistente.
 3. **Refuso "Perferiche"**: la categoria 2 è `N'Perferiche'` in
-   `DatabaseScript.sql:422` e nei DB creati da lì; il seed (`HasData`) dice
-   già "Periferiche". Correzione del dato con uno script o da admin, senza
+   `DatabaseScript.sql:422` e nei DB creati da lì; il seed (`HasData`) dice già
+   "Periferiche". Correzione del dato con uno script o da admin, senza
    migration.
+
+## Stato avanzamento feat/account-reactivation (aggiornato 2026-11-24)
+
+Branch `feat/account-reactivation`, test-first. Implementa la specifica
+"disattivazione, sospensione e riattivazione" con le decisioni sopra.
+
+| Voce                          | Stato   | Come                                                                                                                                                                                                  |
+| ----------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Campi di disattivazione       | Fatto   | `DeactivationReason` (User=1/Admin=2), `DeactivationNote` (max 500), `DeactivatedAt` (UTC). Migration `AccountDeactivation` con backfill `Reason=Admin` per gli utenti già disattivati                |
+| Login senza enumerazione      | Chiuso  | `CheckPasswordSignInAsync` prima dello stato: email inesistente, password errata e lockout → stesso 401 `invalid_credentials`. Con password corretta: 403 `account_deactivated` / `account_suspended` |
+| Lockout                       | Fatto   | Attivo su login e reactivate (contatore unico): 5 tentativi, 15 minuti (`appsettings` → `Identity`)                                                                                                   |
+| `DELETE /Account/{id}`        | Fatto   | Solo sul proprio account, nota facoltativa → 204. Altro utente → 403 (anche Admin: usare `/suspend`); Admin su se stesso → 403                                                                        |
+| `PUT /Account/{id}/suspend`   | Fatto   | Solo Admin, nota obbligatoria. 400 `cannot_suspend_self`, 409 `cannot_suspend_admin`, 404. Un utente già disattivato diventa sospeso con la nuova nota                                                |
+| `PUT /Account/{id}/unsuspend` | Fatto   | Solo Admin: riattiva e azzera i campi. 409 `not_suspended` per account attivi o disattivati dal cliente                                                                                               |
+| `POST /Account/reactivate`    | Fatto   | Solo Reason=User, password con lockout → 200 + token. Sospeso → 403 `account_suspended`. Account attivo → 200 + token                                                                                 |
+| `DeleteUserByEmail`           | Rimosso | Sostituito da `/suspend` (decisione 2). Il FE non lo usava                                                                                                                                            |
+| `UsersList`                   | Fatto   | `GetUserDto` con `Id`, `DeactivationReason` (`"User"`/`"Admin"`), `DeactivationNote`, `DeactivatedAt`: il backoffice può chiamare `/suspend`                                                          |
+
+- Errori di autenticazione in formato `ProblemDetails` con estensione `code`
+  stabile: `invalid_credentials`, `account_deactivated`, `account_suspended`,
+  `cannot_suspend_self`, `cannot_suspend_admin`, `not_suspended`.
+- La nota di sospensione non viene mai restituita al cliente (solo in
+  `UsersList` per l'Admin).
+- Test: 77 → 111. Warning di build: 109 (invariati).
+- Terminologia: "ban" rinominato in "sospensione" (`/suspend`, `/unsuspend`) su
+  richiesta; i commit già pushati sono stati allineati con un commit `refactor`
+  separato.
+
+### Impatto FE (M4)
+
+- Login: 401 con corpo `ProblemDetails`; nuovi 403 da gestire tramite `code`:
+  `account_deactivated` → pagina di riattivazione con conferma, poi pagina di
+  benvenuto; `account_suspended` → messaggio di negazione (testo da definire).
+- Nuovi endpoint: `POST /Account/reactivate`, `DELETE /Account/{id}` (campo
+  motivo facoltativo), `PUT /Account/{id}/suspend` (nota obbligatoria) e
+  `/unsuspend` nel backoffice, con l'`id` preso da `UsersList`.
+- Dopo 5 password errate: 15 minuti di 401 anche con la password corretta.
+
+### Limiti noti
+
+- **Migration non verificata da CI** (SQLite): backfill e Down vanno provati su
+  SQL Server prima del deploy.
+- Lockout sul login: chi conosce un'email può bloccare quell'account per 15
+  minuti (DoS mirato), compromesso standard.
+- Il controllo del token legge l'utente a ogni richiesta autenticata.
+
+### Fuori scope (non toccati)
+
+1. **Canale laterale di tempo nel login**: con email inesistente la risposta è
+   più veloce (nessuna verifica dell'hash), quindi i tempi possono rivelare se
+   un'email è registrata. Soluzione: quando l'email non esiste, verificare
+   comunque la password contro un hash fittizio
+   (`PasswordHasher.VerifyHashedPassword` su un hash precalcolato) per rendere i
+   tempi uguali.
+2. Gestione ruoli e protezione "ultimo admin": milestone M6 (sopra).
+3. `DateTime.Now` nella scadenza del token (#15, M3d).
+4. Chiave di configurazione `SignInRequireConfirmedAccount` in
+   `appsettings.json` contro `RequireConfirmedAccount` letta in `Program.cs`:
+   non coincidono, l'impostazione è ignorata (oggi vale comunque false).
+
+## Nuovo milestone: M6
+
+- Gestione admin (milestone futura dopo M4, "M6"): oggi nessuna gestione ruoli
+  via API; admin creati via DB. Proposta: ruolo SuperAdmin (GUID fisso); primo
+  SuperAdmin da seed configurato via User Secrets/env o SQL documentato; POST
+  /Account/admins solo SuperAdmin crea un Admin senza password e invia email di
+  invito con token Identity a scadenza (24h, monouso); POST
+  /Account/set-password; regole: Admin non crea admin, SuperAdmin non
+  sospendibile/declassabile via API, protezione ultimo SuperAdmin, sospensione
+  Admin solo da SuperAdmin. Prerequisito: infrastruttura email (IEmailSender;
+  Mailpit/smtp4dev in sviluppo; SMTP/servizio esterno in produzione, credenziali
+  via env). Stessa infrastruttura abilita "password dimenticata" per i clienti.
+  README: documentare come creare il primo admin.
