@@ -69,9 +69,9 @@ namespace VTInformatica.Services
             if (category == null) return false;
 
             // Verifica esplicita invece di affidarsi all'errore FK del DB (indipendente dal provider).
-            // IgnoreQueryFilters: contano anche i prodotti eliminati, che mantengono lo storico ordini.
-            if (await _context.SubCategories.AnyAsync(sc => sc.CategoryId == id)
-                || await _context.Products.IgnoreQueryFilters().AnyAsync(p => p.CategoryId == id))
+            // I prodotti stanno sotto una sottocategoria (anche quelli eliminati, che mantengono lo
+            // storico ordini): una categoria senza sottocategorie non può avere prodotti.
+            if (await _context.SubCategories.AnyAsync(sc => sc.CategoryId == id))
                 throw new ResourceInUseException(
                     "La categoria ha sottocategorie o prodotti collegati (compresi quelli eliminati, che mantengono lo storico ordini): non può essere eliminata.");
 

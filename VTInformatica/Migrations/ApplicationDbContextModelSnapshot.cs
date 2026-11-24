@@ -625,9 +625,6 @@ namespace VTInformatica.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("CategoryId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -655,8 +652,6 @@ namespace VTInformatica.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("CategoryId");
 
                     b.HasIndex("ManufacturerId");
 
@@ -1034,12 +1029,6 @@ namespace VTInformatica.Migrations
 
             modelBuilder.Entity("VTInformatica.Models.Product", b =>
                 {
-                    b.HasOne("VTInformatica.Models.Category", "Category")
-                        .WithMany("Products")
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("VTInformatica.Models.Manufacturer", "Manufacturer")
                         .WithMany("Products")
                         .HasForeignKey("ManufacturerId")
@@ -1051,8 +1040,6 @@ namespace VTInformatica.Migrations
                         .HasForeignKey("SubCategoryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("Category");
 
                     b.Navigation("Manufacturer");
 
@@ -1110,8 +1097,6 @@ namespace VTInformatica.Migrations
 
             modelBuilder.Entity("VTInformatica.Models.Category", b =>
                 {
-                    b.Navigation("Products");
-
                     b.Navigation("SubCategories");
                 });
 

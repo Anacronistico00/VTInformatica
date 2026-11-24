@@ -84,7 +84,6 @@ public class SubCategoryErrorTests
             Description = "Creato dai test",
             Price = 10m,
             Quantity = 1,
-            CategoryId = CategoryId,
             SubCategoryId = subCategory.Id,
             ManufacturerId = 1,
             IsDeleted = productDeleted,

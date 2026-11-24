@@ -30,11 +30,7 @@ namespace VTInformatica.Models
 
         public string? FullDescription { get; set; }
 
-        public int CategoryId { get; set; }
-
-        [ForeignKey("CategoryId")]
-        public Category? Category { get; set; }
-
+        // La categoria è quella della sottocategoria (SubCategory.CategoryId): nessuna seconda copia.
         public int SubCategoryId { get; set; }
         [ForeignKey("SubCategoryId")]
         public SubCategory? SubCategory { get; set; }

@@ -86,7 +86,6 @@ public class ManufacturerErrorTests
             Description = "Creato dai test",
             Price = 10m,
             Quantity = 1,
-            CategoryId = 1,
             SubCategoryId = 1,
             ManufacturerId = manufacturer.ManufacturerId,
             IsDeleted = productDeleted,
