@@ -4,6 +4,7 @@ using VTInformatica.DTOs.Category;
 using VTInformatica.DTOs.SubCategory;
 using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
+using VTInformatica.Mapping;
 using VTInformatica.Models;
 
 namespace VTInformatica.Services
@@ -19,30 +20,15 @@ namespace VTInformatica.Services
 
         public async Task<List<CategoryDto>> GetAllAsync()
         {
-            return await _context.Categories.Include(c => c.SubCategories).Select(c => new CategoryDto
-            {
-                Id = c.Id,
-                Name = c.Name,
-                SubCategories = c.SubCategories != null ? c.SubCategories.Select(sc => new GetSubCategoryDto
-                {
-                    Id = sc.Id,
-                    Name = sc.Name,
-                }).ToList() : null
-            }).ToListAsync();
+            return await _context.Categories.Select(CategoryMapper.Projection).ToListAsync();
         }
 
         public async Task<CategoryDto?> GetByIdAsync(int id)
         {
-            var c = await _context.Categories.Include(c => c.SubCategories).FirstOrDefaultAsync(c => c.Id == id);
-            return c == null ? null : new CategoryDto { 
-                Id = c.Id, 
-                Name = c.Name,
-                SubCategories = c.SubCategories != null ? c.SubCategories.Select(sc => new GetSubCategoryDto
-                {
-                    Id = sc.Id,
-                    Name = sc.Name,
-                }).ToList() : null
-            };
+            return await _context.Categories
+                .Where(c => c.Id == id)
+                .Select(CategoryMapper.Projection)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<CategoryDto> CreateAsync(CategoryDto dto)

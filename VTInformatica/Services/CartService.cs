@@ -6,6 +6,7 @@ using VTInformatica.DTOs.Cart;
 using VTInformatica.DTOs.Product;
 using VTInformatica.Exceptions;
 using VTInformatica.Interfaces;
+using VTInformatica.Mapping;
 using VTInformatica.Models;
 using VTInformatica.Models.Auth;
 
@@ -31,34 +32,7 @@ namespace VTInformatica.Services
                 .FirstOrDefaultAsync(c => c.Email == email);
 
             // Lettura pura: un utente senza carrello ne ha uno vuoto, la riga nasce alla prima aggiunta.
-            if (cart == null)
-            {
-                return new GetCartDto { Email = email, TotalPrice = 0m, Items = new List<GetCartItemDto>() };
-            }
-
-            var totalPrice = cart.Items
-                .Where(i => i.Product != null)
-                .Sum(i => i.Quantity * i.Product.Price);
-
-            return new GetCartDto
-            {
-                Email = cart.Email,
-                TotalPrice = totalPrice,
-                Items = cart.Items.Select(i => new GetCartItemDto
-                {
-                    Id = i.Id,
-                    Quantity = i.Quantity,
-                    Product = new GetCartProductDto
-                    {
-                        Name = i.Product.Name,
-                        Price = i.Product.Price,
-                        ProductImages = i.Product.ProductImages?.Select(img => new ProductImageDto
-                        {
-                            ImageUrl = img.ImageUrl
-                        }).ToList()
-                    }
-                }).ToList()
-            };
+            return cart == null ? CartMapper.Empty(email) : CartMapper.ToDto(cart);
         }
 
 
