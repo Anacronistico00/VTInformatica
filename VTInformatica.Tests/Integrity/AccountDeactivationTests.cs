@@ -85,7 +85,107 @@ public class AccountDeactivationTests
         Assert.Equal("invalid_credentials", await CodeAsync(response));
     }
 
+    // ---- DELETE /Account/{id}: il cliente disattiva il proprio account ----
+
+    [Fact]
+    public async Task DeleteSelf_DeactivatesWithReasonUser_AndRevokesToken()
+    {
+        var email = TestHelpers.UniqueEmail();
+        var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+
+        var response = await DeleteAccountAsync(client, userId, new { note = "Non uso più il sito" });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var user = await FindUserAsync(email);
+        Assert.False(user.IsActive);
+        Assert.Equal(DeactivationReason.User, user.DeactivationReason);
+        Assert.Equal("Non uso più il sito", user.DeactivationNote);
+        Assert.NotNull(user.DeactivatedAt);
+        Assert.True(DateTime.UtcNow - user.DeactivatedAt!.Value < TimeSpan.FromMinutes(1));
+
+        // Il controllo del token di M3a2 rende la disattivazione immediata.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/Cart/{email}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteSelf_WithoutNote_Returns204()
+    {
+        var email = TestHelpers.UniqueEmail();
+        var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+
+        var response = await DeleteAccountAsync(client, userId, body: null);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var user = await FindUserAsync(email);
+        Assert.Equal(DeactivationReason.User, user.DeactivationReason);
+        Assert.Null(user.DeactivationNote);
+    }
+
+    [Fact]
+    public async Task DeleteSelf_NoteTooLong_Returns400_AndKeepsAccountActive()
+    {
+        var email = TestHelpers.UniqueEmail();
+        var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
+        var userId = await TestHelpers.GetUserIdAsync(_factory, email);
+
+        var response = await DeleteAccountAsync(client, userId, new { note = new string('x', 501) });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.True((await FindUserAsync(email)).IsActive);
+    }
+
+    [Fact]
+    public async Task Delete_OtherUser_AsAdminOrCustomer_Returns403()
+    {
+        // Un admin non disattiva gli altri con DELETE: deve usare /ban.
+        var targetEmail = await CreateUserAsync("active");
+        var targetId = await TestHelpers.GetUserIdAsync(_factory, targetEmail);
+        var customer = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail()));
+        var admin = await AdminClientAsync();
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await DeleteAccountAsync(customer, targetId, body: null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await DeleteAccountAsync(admin, targetId, body: null)).StatusCode);
+        Assert.True((await FindUserAsync(targetEmail)).IsActive);
+    }
+
+    [Fact]
+    public async Task DeleteSelf_AsAdmin_Returns403()
+    {
+        // Protezione minima: gli admin non si disattivano via API.
+        var adminEmail = TestHelpers.UniqueEmail();
+        var admin = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsAdminAsync(_factory, adminEmail));
+        var adminId = await TestHelpers.GetUserIdAsync(_factory, adminEmail);
+
+        var response = await DeleteAccountAsync(admin, adminId, body: null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.True((await FindUserAsync(adminEmail)).IsActive);
+    }
+
     // ---- Helper ----
+
+    private static Task<HttpResponseMessage> DeleteAccountAsync(HttpClient client, string userId, object? body)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/Account/{userId}");
+        if (body != null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+        return client.SendAsync(request);
+    }
+
+    private async Task<HttpClient> AdminClientAsync() =>
+        TestHelpers.AuthorizedClient(_factory,
+            await TestHelpers.RegisterAndLoginAsAdminAsync(_factory, TestHelpers.UniqueEmail()));
+
+    private async Task<ApplicationUser> FindUserAsync(string email)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        return (await userManager.FindByEmailAsync(email))!;
+    }
 
     /// <summary>
     /// Registra un utente e ne imposta lo stato direttamente nel DB:
