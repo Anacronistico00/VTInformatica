@@ -38,7 +38,7 @@ namespace VTInformatica.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto registerRequestDto)
         {
-            if (User.Identity.IsAuthenticated)
+            if (User.Identity?.IsAuthenticated == true)
             {
                 return this.ApiProblem(StatusCodes.Status400BadRequest, "already_authenticated", "Sei già loggato. Non puoi registrarti di nuovo.");
             }
@@ -63,7 +63,7 @@ namespace VTInformatica.Controllers
             };
 
             // Verifico se la password soddisfa i criteri
-            var passwordValidationResult = await _userManager.PasswordValidators.FirstOrDefault().ValidateAsync(_userManager, newUser, registerRequestDto.Password);
+            var passwordValidationResult = await _userManager.PasswordValidators.First().ValidateAsync(_userManager, newUser, registerRequestDto.Password);
             if (!passwordValidationResult.Succeeded)
             {
                 // Se la password non è valida, non crea l'utente e restituisce un errore
@@ -89,7 +89,7 @@ namespace VTInformatica.Controllers
         public async Task<IActionResult> Login(LoginRequestDto loginRequestDto)
         {
 
-            if (User.Identity.IsAuthenticated)
+            if (User.Identity?.IsAuthenticated == true)
             {
                 return this.ApiProblem(StatusCodes.Status400BadRequest, "already_authenticated", "Sei già loggato.");
             }
@@ -157,7 +157,7 @@ namespace VTInformatica.Controllers
             List<Claim> claims = new List<Claim>();
 
             claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id));
-            claims.Add(new Claim(ClaimTypes.Email, user.Email));
+            claims.Add(new Claim(ClaimTypes.Email, user.Email ?? string.Empty));
             claims.Add(new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"));
             claims.Add(new Claim(ClaimTypes.DateOfBirth, user.BirthDate.ToString("yyyy-MM-dd")));
 

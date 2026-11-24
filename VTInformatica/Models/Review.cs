@@ -13,23 +13,23 @@ namespace VTInformatica.Models
         public int ReviewRating { get; set; }
 
         [Required]
-        public string ReviewComment { get; set; }
+        public string ReviewComment { get; set; } = string.Empty;
 
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Required]
-        public string UserId { get; set; }
+        public string UserId { get; set; } = string.Empty;
 
         [ForeignKey("UserId")]
-        public ApplicationUser User { get; set; }
+        public ApplicationUser User { get; set; } = null!;
 
-        public string Email { get; set; }
+        public string Email { get; set; } = string.Empty;
 
         [Required]
         public int ProductId { get; set; }
 
         [ForeignKey("ProductId")]
-        public Product Product { get; set; }
+        public Product Product { get; set; } = null!;
     }
 }

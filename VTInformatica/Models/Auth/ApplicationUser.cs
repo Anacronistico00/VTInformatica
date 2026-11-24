@@ -31,8 +31,8 @@ namespace VTInformatica.Models.Auth
 
         public Cart? Cart { get; set; }
 
-        public ICollection<ApplicationUserRole> ApplicationUserRoles { get; set; }
+        public ICollection<ApplicationUserRole> ApplicationUserRoles { get; set; } = new List<ApplicationUserRole>();
 
-        public ICollection<Review> Reviews { get; set; }
+        public ICollection<Review> Reviews { get; set; } = new List<Review>();
     }
 }

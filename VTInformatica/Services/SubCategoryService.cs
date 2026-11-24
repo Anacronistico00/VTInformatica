@@ -25,7 +25,7 @@ namespace VTInformatica.Services
                 .ToListAsync();
         }
 
-        public async Task<SubCategoryDto> GetByIdAsync(int id)
+        public async Task<SubCategoryDto?> GetByIdAsync(int id)
         {
             return await _context.SubCategories
                 .Where(sc => sc.Id == id)

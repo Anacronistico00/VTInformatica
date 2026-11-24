@@ -28,7 +28,7 @@ namespace VTInformatica.Services
                 result.Add(new GetUserDto
                 {
                     Id = user.Id,
-                    Email = user.Email,
+                    Email = user.Email ?? string.Empty,
                     FullName = $"{user.FirstName} {user.LastName}",
                     BirthDate = user.BirthDate,
                     Role = role,

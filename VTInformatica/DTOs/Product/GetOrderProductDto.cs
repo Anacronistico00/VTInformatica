@@ -11,7 +11,7 @@ namespace VTInformatica.DTOs.Product
     {
 
         [Required]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [Required]
         public decimal Price { get; set; }

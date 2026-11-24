@@ -131,7 +131,7 @@ namespace VTInformatica.Services
             product.SubCategoryId = dto.SubCategoryId;
 
             // Confronta gli url esistenti con quelli nuovi, rimuove tutti gli url e aggiunge quelli nuovi
-            if(product.ProductImages == null || !product.ProductImages.Any() && dto.ProductImages == null || !dto.ProductImages.Any())
+            if (product.ProductImages == null || dto.ProductImages == null || !dto.ProductImages.Any())
             {
                 return false;
             }

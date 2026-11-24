@@ -5,13 +5,13 @@ namespace VTInformatica.Models.Auth
 {
     public class ApplicationUserRole : IdentityUserRole<string>
     {
-        public Guid UserId { get; set; }
-        public Guid RoleId { get; set; }
+        public new Guid UserId { get; set; }
+        public new Guid RoleId { get; set; }
         public DateTime CreatedAt { get; set; }
 
         [ForeignKey("UserId")]
-        public ApplicationUser User { get; set; }
+        public ApplicationUser User { get; set; } = null!;
         [ForeignKey("RoleId")]
-        public ApplicationRole Role { get; set; }
+        public ApplicationRole Role { get; set; } = null!;
     }
 }

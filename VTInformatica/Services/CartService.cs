@@ -23,7 +23,7 @@ namespace VTInformatica.Services
             _userManager = userManager;
         }
 
-        public async Task<GetCartDto?> GetCartByEmailAsync(string email)
+        public async Task<GetCartDto> GetCartByEmailAsync(string email)
         {
             var cart = await _context.Carts.AsNoTracking()
                 .Include(c => c.Items)

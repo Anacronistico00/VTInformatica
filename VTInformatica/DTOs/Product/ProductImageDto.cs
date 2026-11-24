@@ -2,7 +2,7 @@
 {
     public class ProductImageDto
     {
-        public string ImageUrl { get; set; }
+        public string ImageUrl { get; set; } = null!;
 
     }
 }

@@ -9,6 +9,6 @@ namespace VTInformatica.DTOs.Order
         [Required]
         public int Quantity { get; set; }
 
-        public GetOrderProductDto Product { get; set; }
+        public GetOrderProductDto Product { get; set; } = new GetOrderProductDto();
     }
 }
