@@ -95,16 +95,24 @@ namespace VTInformatica.Controllers
 
             var user = await _userManager.FindByEmailAsync(loginRequestDto.Email);
 
-            if (user == null || !user.IsActive)
+            // Prima la password, poi lo stato: con password errata, email inesistente o lockout
+            // la risposta è sempre la stessa, così lo stato dell'account non viene rivelato.
+            // CheckPasswordSignInAsync controlla il lockout prima della password e non crea cookie.
+            if (user == null)
             {
-                return Unauthorized("Email o password non valide.");
+                return InvalidCredentials();
             }
 
-            var result = await _signInManager.PasswordSignInAsync(user, loginRequestDto.Password, false, false);
+            var result = await _signInManager.CheckPasswordSignInAsync(user, loginRequestDto.Password, lockoutOnFailure: true);
 
             if (!result.Succeeded)
             {
-                return Unauthorized("Invalid email or password");
+                return InvalidCredentials();
+            }
+
+            if (!user.IsActive)
+            {
+                return AccountInactive(user);
             }
 
             var roles = await _signInManager.UserManager.GetRolesAsync(user);
@@ -181,6 +189,25 @@ namespace VTInformatica.Controllers
                 return NotFound(new { message = "Utente non trovato o errore durante la cancellazione." });
 
             return Ok(new { message = "Utente eliminato con successo." });
+        }
+
+        // ---- Errori dell'autenticazione: ProblemDetails con un "code" stabile per il FE ----
+
+        /// <summary>Unica risposta per email inesistente, password errata e lockout: nessuna enumerazione.</summary>
+        private ObjectResult InvalidCredentials() =>
+            AccountProblem(StatusCodes.Status401Unauthorized, "Email o password non valide.", "invalid_credentials");
+
+        /// <summary>Solo dopo la verifica della password. La nota di disattivazione non viene mai restituita.</summary>
+        private ObjectResult AccountInactive(ApplicationUser user) =>
+            user.DeactivationReason == DeactivationReason.User
+                ? AccountProblem(StatusCodes.Status403Forbidden, "Account disattivato.", "account_deactivated")
+                : AccountProblem(StatusCodes.Status403Forbidden, "Account sospeso.", "account_suspended");
+
+        private ObjectResult AccountProblem(int statusCode, string title, string code)
+        {
+            var problem = ProblemDetailsFactory.CreateProblemDetails(HttpContext, statusCode: statusCode, title: title);
+            problem.Extensions["code"] = code;
+            return new ObjectResult(problem) { StatusCode = statusCode };
         }
     }
 }

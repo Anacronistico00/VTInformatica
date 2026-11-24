@@ -87,6 +87,13 @@ try
 
         options.Password.RequireUppercase =
             builder.Configuration.GetSection("Identity").GetValue<bool>("RequireUppercase");
+
+        // Lockout: usato da login e reactivate (CheckPasswordSignInAsync con lockoutOnFailure).
+        options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.MaxFailedAccessAttempts =
+            builder.Configuration.GetSection("Identity").GetValue("MaxFailedAccessAttempts", 5);
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(
+            builder.Configuration.GetSection("Identity").GetValue("LockoutMinutes", 15));
     })
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders();
