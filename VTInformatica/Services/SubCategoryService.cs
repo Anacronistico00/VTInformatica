@@ -49,6 +49,8 @@ namespace VTInformatica.Services
 
         public async Task<SubCategoryDto> CreateAsync(SubCategoryDto dto)
         {
+            await EnsureCategoryExistsAsync(dto.CategoryId);
+
             var subCategory = new SubCategory
             {
                 Name = dto.Name,
@@ -67,6 +69,8 @@ namespace VTInformatica.Services
             var subCategory = await _context.SubCategories.FindAsync(id);
             if (subCategory == null) return false;
 
+            await EnsureCategoryExistsAsync(dto.CategoryId);
+
             subCategory.Name = dto.Name;
             subCategory.CategoryId = dto.CategoryId;
 
@@ -74,6 +78,13 @@ namespace VTInformatica.Services
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        // Categoria inesistente: 400 invece della violazione FK al salvataggio (500).
+        private async Task EnsureCategoryExistsAsync(int categoryId)
+        {
+            if (!await _context.Categories.AnyAsync(c => c.Id == categoryId))
+                throw new CategoryNotFoundException(categoryId);
         }
 
         public async Task<bool> DeleteAsync(int id)
