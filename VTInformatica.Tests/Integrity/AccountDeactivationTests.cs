@@ -11,7 +11,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Integrity;
 
 /// <summary>
-/// Disattivazione, sospensione e riattivazione (docs/AUDIT-prima.md, feat/account-reactivation).
+/// Disattivazione, sospensione e riattivazione (vedi docs/AUDIT-prima.md).
 /// Lo stato dell'account si rivela solo dopo la verifica della password: con password
 /// errata la risposta è identica per email inesistente, account attivo, disattivato o sospeso.
 /// </summary>
@@ -104,7 +104,7 @@ public class AccountDeactivationTests
         Assert.NotNull(user.DeactivatedAt);
         Assert.True(DateTime.UtcNow - user.DeactivatedAt!.Value < TimeSpan.FromMinutes(1));
 
-        // Il controllo del token di M3a2 rende la disattivazione immediata.
+        // Il controllo del token rende la disattivazione immediata.
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/Cart/{email}")).StatusCode);
     }
 

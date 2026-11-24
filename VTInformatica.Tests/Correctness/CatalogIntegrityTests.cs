@@ -7,9 +7,8 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Correctness;
 
 /// <summary>
-/// M3c2: sottocategoria con categoria inesistente → 400 (era 500) e categoria del prodotto
-/// ricavata dalla sottocategoria (Product.CategoryId duplicava il dato e restava vecchio
-/// quando la sottocategoria cambiava categoria).
+/// Sottocategoria con categoria inesistente → 400; categoria del prodotto ricavata dalla
+/// sottocategoria (una copia sul prodotto si disallineerebbe quando la sottocategoria cambia categoria).
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class CatalogIntegrityTests

@@ -24,7 +24,7 @@ namespace VTInformatica.Models
         [Required]
         public int Quantity { get; set; }
 
-        // Prezzo unitario al momento dell'acquisto (AUDIT #6): non cambia se cambia Product.Price.
+        // Prezzo unitario al momento dell'acquisto: non cambia se cambia Product.Price.
         [Precision(18, 2)]
         public decimal UnitPrice { get; set; }
     }

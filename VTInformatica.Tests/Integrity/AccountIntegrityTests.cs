@@ -72,8 +72,8 @@ public class AccountIntegrityTests
     [Fact]
     public async Task UpdateUser_ChangingEmail_Returns400_AndCartStillReachable()
     {
-        // Carrello e ordini usano l'email come chiave: cambiarla da qui rompeva il legame
-        // (e UserName restava quello vecchio). Il cambio email richiede un flusso dedicato.
+        // Carrello e ordini usano l'email come chiave: cambiarla da qui romperebbe il legame
+        // (e UserName resterebbe disallineato). Il cambio email richiede un flusso dedicato.
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
@@ -152,7 +152,7 @@ public class AccountIntegrityTests
     [Fact]
     public async Task DeactivatedUser_OldToken_Returns401()
     {
-        // Il JWT restava valido fino alla scadenza anche dopo la disattivazione dell'account.
+        // Il JWT di un account disattivato non deve più autenticare, anche se non è scaduto.
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/Cart/{email}")).StatusCode);
@@ -183,7 +183,7 @@ public class AccountIntegrityTests
     {
         var admin = TestHelpers.AuthorizedClient(_factory,
             await TestHelpers.RegisterAndLoginAsAdminAsync(_factory, TestHelpers.UniqueEmail()));
-        // DeleteUserByEmail è stato sostituito dalla sospensione (feat/account-reactivation).
+        // Un Admin disattiva un utente con la sospensione.
         var userId = await TestHelpers.GetUserIdAsync(_factory, email);
         Assert.Equal(HttpStatusCode.NoContent,
             (await admin.PutAsJsonAsync($"/Account/{userId}/suspend", new { note = "Disattivato dai test" })).StatusCode);

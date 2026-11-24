@@ -59,7 +59,7 @@ namespace VTInformatica.Services
 
             var existingItem = cart.Items.FirstOrDefault(i => i.ProductId == itemDto.ProductId);
 
-            // AUDIT #8: prodotto esistente e quantità totale nel carrello entro lo stock.
+            // Prodotto esistente e quantità totale nel carrello entro lo stock.
             // Controllo indicativo: la garanzia vera sullo stock è al checkout.
             var product = await _context.Products.AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == itemDto.ProductId);

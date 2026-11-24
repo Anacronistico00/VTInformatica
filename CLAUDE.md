@@ -41,6 +41,8 @@
 - Async/await ovunque. Date in UTC (`DateTime.UtcNow`).
 - Log con Serilog (`Log.Error(ex, ...)`), mai swallow silenzioso delle
   eccezioni.
+- I commenti spiegano il perché del codice attuale, mai la sua storia: niente
+  "prima era...", "fix di...", riferimenti a milestone.
 
 ## Regole di lavoro
 

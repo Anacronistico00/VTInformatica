@@ -9,9 +9,8 @@ using VTInformatica.Interfaces;
 
 namespace VTInformatica.Controllers
 {
-    // Nessun catch generico (AUDIT #11): le eccezioni le gestisce GlobalExceptionHandler.
-    // Restano solo i catch di UnauthorizedAccessException: sono la politica di M1 e dipendono
-    // dall'endpoint (update altrui → 403, delete altrui → 404).
+    // Le eccezioni le gestisce GlobalExceptionHandler. I catch di UnauthorizedAccessException
+    // sono una scelta per endpoint: update altrui → 403, delete altrui → 404.
     [Route("[controller]")]
     [ApiController]
     [Authorize]

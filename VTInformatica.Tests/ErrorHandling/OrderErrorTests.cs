@@ -7,8 +7,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.ErrorHandling;
 
 /// <summary>
-/// OrderController senza try/catch (AUDIT #11): errori come ProblemDetails + code,
-/// liste vuote come 200 [], stessi status di prima per i casi già gestiti in M2/M3a.
+/// OrderController (AUDIT #11): errori come ProblemDetails + code, liste vuote come 200 [].
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class OrderErrorTests
@@ -104,7 +103,7 @@ public class OrderErrorTests
     }
 }
 
-/// <summary>Guasto del DB al checkout: senza catch nel controller resta un 500, ora nel formato unico.</summary>
+/// <summary>Guasto del DB al checkout: 500 nel formato unico, senza dettagli.</summary>
 public class OrderUnhandledErrorTests : IClassFixture<FaultInjectionFactory>
 {
     private readonly FaultInjectionFactory _factory;

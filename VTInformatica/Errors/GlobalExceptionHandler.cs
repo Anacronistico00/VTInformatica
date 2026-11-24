@@ -8,11 +8,11 @@ using VTInformatica.Exceptions;
 namespace VTInformatica.Errors
 {
     /// <summary>
-    /// Gestore unico delle eccezioni (AUDIT #11), al posto dei try/catch nei controller.
+    /// Gestore unico delle eccezioni.
     /// - DomainException: status e code dell'eccezione, messaggio come "detail". Log Warning.
     /// - Qualsiasi altra eccezione: 500 internal_error senza "detail": nessuno stack, messaggio SQL
     ///   o testo dell'eccezione esce verso il client, in nessun ambiente. Log Error con lo stack.
-    /// È l'unico punto che logga le eccezioni: i controller non le catturano più.
+    /// È l'unico punto che logga le eccezioni: i controller non le catturano.
     /// </summary>
     public sealed class GlobalExceptionHandler : IExceptionHandler
     {

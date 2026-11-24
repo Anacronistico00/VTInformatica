@@ -35,7 +35,7 @@ public class OrderAtomicityTests : IClassFixture<FaultInjectionFactory>
             _factory.CartItemDeleteFailure.Disable();
         }
 
-        // Il 500 generico resta (gestione errori: audit #11, M3); qui conta lo stato.
+        // La risposta è un 500 generico; qui conta lo stato dopo l'errore.
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
 
         using var scope = _factory.Services.CreateScope();

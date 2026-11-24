@@ -6,7 +6,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Correctness;
 
 /// <summary>
-/// M3c2: review con prodotto inesistente → 404 (era 500), rating validato (1–5),
+/// Review con prodotto inesistente → 404, rating validato (1–5),
 /// email dell'autore non esposta nelle risposte pubbliche dei prodotti.
 /// </summary>
 [Collection(ApiCollection.Name)]

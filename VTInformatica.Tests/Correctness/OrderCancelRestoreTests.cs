@@ -7,7 +7,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Correctness;
 
 /// <summary>
-/// M3c1 (AUDIT M2 fuori scope n. 3): annulla e ripristina ordine con stock atomico
+/// Annulla e ripristina ordine con stock atomico
 /// (UPDATE ... SET Quantity = Quantity +/- n invece di read-modify-write) e 409 se
 /// il ripristino non ha stock sufficiente. Scrittura concorrente simulata dall'interceptor.
 /// </summary>

@@ -9,8 +9,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.ErrorHandling;
 
 /// <summary>
-/// SubCategoryController (5 catch) e SubCategoryService (5 log + rethrow) senza try/catch (AUDIT #11).
-/// Prima guardie sul CRUD (nessun test copriva le sottocategorie), poi delete con prodotti → 409.
+/// SubCategoryController e SubCategoryService (AUDIT #11): CRUD e delete con prodotti → 409.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class SubCategoryErrorTests

@@ -6,7 +6,7 @@ namespace VTInformatica.Tests.Integrity;
 
 /// <summary>
 /// Create/Update prodotto: stock negativo e prezzo non positivo vanno rifiutati con 400
-/// (prima solo [Required], che su int/decimal non valida niente).
+/// ([Required] da solo non valida nulla su int/decimal).
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class ProductValidationTests

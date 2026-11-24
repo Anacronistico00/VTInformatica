@@ -8,7 +8,7 @@ namespace VTInformatica.Tests.Integrity;
 /// Lost update dello stock: l'admin salva il form con la Quantity letta prima delle vendite
 /// avvenute nel frattempo. Con ExpectedQuantity (lo stock che l'admin vedeva) l'update è
 /// condizionale: se lo stock è cambiato risponde 409 e non tocca niente.
-/// ExpectedQuantity è opzionale per compatibilità: il FE lo adotterà in M4.
+/// ExpectedQuantity è opzionale per compatibilità con i client che non lo inviano.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class ProductStockUpdateTests
@@ -54,7 +54,7 @@ public class ProductStockUpdateTests
     [Fact]
     public async Task Update_WithoutExpectedQuantity_KeepsCurrentBehavior()
     {
-        // Guardia di compatibilità: senza ExpectedQuantity la Quantity viene scritta come prima.
+        // Guardia di compatibilità: senza ExpectedQuantity la Quantity viene scritta senza controllo.
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var admin = await AdminClientAsync();
 

@@ -9,8 +9,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.ErrorHandling;
 
 /// <summary>
-/// CategoryController senza try/catch (AUDIT #11). Prima di toglierli, guardie sul CRUD
-/// (nessun test copriva le categorie); poi delete con dipendenze → 409 resource_in_use.
+/// CategoryController (AUDIT #11): CRUD e delete con dipendenze → 409 resource_in_use.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class CategoryErrorTests

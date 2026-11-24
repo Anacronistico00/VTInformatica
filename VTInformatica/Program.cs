@@ -33,7 +33,7 @@ try
     var builder = WebApplication.CreateBuilder(args);
     builder.Services.AddControllers();
 
-    // AUDIT #11: errori in un unico formato (ProblemDetails + code + traceId) e un unico gestore.
+    // Errori in un unico formato (ProblemDetails + code + traceId) e un unico gestore.
     builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ApiProblems.Customize);
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
@@ -183,7 +183,7 @@ try
     // Verificato da GlobalErrorHandlerTests in Testing, Development e Production.
     app.UseExceptionHandler();
 
-    // Solo le origini configurate in Cors:AllowedOrigins (audit #10).
+    // Solo le origini configurate in Cors:AllowedOrigins.
     var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 
     app.UseCors(c =>
@@ -215,7 +215,7 @@ try
 catch (Exception ex) when (ex is not HostAbortedException)
 {
     // Avvio fallito: log completo (stack compreso) ed exit code 1, così orchestratori e CI
-    // vedono il fallimento (prima: solo ex.Message e uscita con 0).
+    // vedono il fallimento.
     Log.Fatal(ex, "Avvio dell'applicazione fallito.");
     return 1;
 }

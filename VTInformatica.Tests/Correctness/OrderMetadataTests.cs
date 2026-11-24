@@ -10,7 +10,7 @@ using VTInformatica.Tests.Infrastructure;
 
 namespace VTInformatica.Tests.Correctness;
 
-/// <summary>M3c1: CustomerComment non più hardcoded (M2 fuori scope n. 11) e OrderNumber unique (n. 10).</summary>
+/// <summary>CustomerComment scelto dal cliente (nessun testo fisso) e OrderNumber unique.</summary>
 [Collection(ApiCollection.Name)]
 public class OrderMetadataTests
 {

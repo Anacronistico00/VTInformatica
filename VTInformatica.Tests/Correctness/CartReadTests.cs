@@ -10,7 +10,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Correctness;
 
 /// <summary>
-/// M3d: leggere il carrello non scrive nulla (nemmeno nel change tracker) e il totale
+/// Leggere il carrello non scrive nulla (nemmeno nel change tracker) e il totale
 /// non è una colonna: si calcola sempre dalle righe e dai prezzi correnti.
 /// </summary>
 [Collection(ApiCollection.Name)]

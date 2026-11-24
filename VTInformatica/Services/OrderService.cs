@@ -68,7 +68,7 @@ namespace VTInformatica.Services
                 throw new EmptyCartException();
             }
 
-            // AUDIT #7: ordine, stock e svuotamento carrello sono tutto o niente.
+            // Ordine, stock e svuotamento carrello sono tutto o niente.
             // Se un'eccezione esce prima del Commit, il dispose fa rollback.
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -86,7 +86,7 @@ namespace VTInformatica.Services
                 .Where(p => productIds.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id, p => p.Price);
 
-            // AUDIT #7: decremento atomico condizionale (UPDATE ... WHERE Quantity >= qty).
+            // Decremento atomico condizionale (UPDATE ... WHERE Quantity >= qty).
             // Ordine per ProductId: transazioni concorrenti bloccano le righe nello stesso ordine (niente deadlock).
             foreach (var item in cart.Items.OrderBy(i => i.ProductId))
             {

@@ -26,7 +26,7 @@ namespace VTInformatica.Models.Auth
         [MaxLength(500)]
         public string? DeactivationNote { get; set; }
 
-        // UTC. Null per gli utenti disattivati prima della migration AccountDeactivation.
+        // UTC. Può essere null per account disattivati senza data registrata.
         public DateTime? DeactivatedAt { get; set; }
 
         public Cart? Cart { get; set; }

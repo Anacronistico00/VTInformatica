@@ -11,8 +11,8 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Integrity;
 
 /// <summary>
-/// Eliminare un prodotto non deve cancellare lo storico ordini (prima OrderItem→Product
-/// era in cascade): il prodotto sparisce dal catalogo e dai carrelli, gli ordini restano.
+/// Eliminare un prodotto non deve cancellare lo storico ordini: il prodotto sparisce dal
+/// catalogo e dai carrelli, gli ordini restano.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class ProductSoftDeleteTests

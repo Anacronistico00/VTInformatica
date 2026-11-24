@@ -8,7 +8,7 @@ using VTInformatica.Models;
 
 namespace VTInformatica.Services
 {
-    // Nessun try/catch con log + rethrow (AUDIT #11): le eccezioni le logga una sola volta GlobalExceptionHandler.
+    // Le eccezioni le logga una sola volta GlobalExceptionHandler.
     public class SubCategoryService : ISubCategoryService
     {
         private readonly ApplicationDbContext _context;
@@ -66,7 +66,7 @@ namespace VTInformatica.Services
             return true;
         }
 
-        // Categoria inesistente: 400 invece della violazione FK al salvataggio (500).
+        // Categoria inesistente: 400 prima di arrivare alla FK.
         private async Task EnsureCategoryExistsAsync(int categoryId)
         {
             if (!await _context.Categories.AnyAsync(c => c.Id == categoryId))

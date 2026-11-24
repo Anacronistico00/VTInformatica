@@ -43,8 +43,7 @@ namespace VTInformatica.Controllers
                 return this.ApiProblem(StatusCodes.Status400BadRequest, "already_authenticated", "Sei già loggato. Non puoi registrarti di nuovo.");
             }
 
-            // AUDIT #9: anche un utente disattivato è "già registrato". Prima la registrazione ne
-            // sovrascriveva il profilo senza password; la riattivazione non passa da qui.
+            // Anche un utente disattivato risulta "già registrato": la riattivazione non passa da qui.
             // Stessa risposta per attivi e disattivati: non rivela lo stato dell'account.
             var existingUser = await _userManager.FindByEmailAsync(registerRequestDto.Email);
             if (existingUser != null)
@@ -59,7 +58,7 @@ namespace VTInformatica.Controllers
                 FirstName = registerRequestDto.FirstName,
                 LastName = registerRequestDto.LastName,
                 BirthDate = registerRequestDto.BirthDate,
-                IsActive = true, // mai dal client (AUDIT #9)
+                IsActive = true, // mai dal client
             };
 
             // Verifico se la password soddisfa i criteri
@@ -224,7 +223,7 @@ namespace VTInformatica.Controllers
             return success ? NoContent() : NotFound();
         }
 
-        // Sostituisce PUT /Account/DeleteUserByEmail/{email}. Effetto immediato grazie al controllo del token.
+        // Effetto immediato grazie al controllo del token.
         [HttpPut("{id}/suspend")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Suspend(string id, [FromBody] SuspendUserDto dto)
