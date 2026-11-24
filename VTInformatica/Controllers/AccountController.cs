@@ -187,7 +187,7 @@ namespace VTInformatica.Controllers
             string id,
             [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] DeactivateAccountDto? dto)
         {
-            // Solo il proprio account (id dal token): un admin disattiva gli altri con /ban.
+            // Solo il proprio account (id dal token): un admin disattiva gli altri con /suspend.
             // Protezione minima: gli Admin non si disattivano via API.
             if (id != User.FindFirstValue(ClaimTypes.NameIdentifier) || User.IsInRole("Admin"))
                 return Forbid();
