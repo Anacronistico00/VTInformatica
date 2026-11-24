@@ -32,11 +32,40 @@ namespace VTInformatica.Controllers
             return cart != null && cart.Items.Any(i => i.Id == cartItemId);
         }
 
+        // Route con identità dal token (M3c1): l'email non viaggia mai nell'URL.
+        [HttpGet("me")]
+        public Task<IActionResult> GetMyCart() => GetCartCore(User.GetEmail());
+
+        [HttpPost("me/add")]
+        public Task<IActionResult> AddItemToMyCart([FromBody] CartItemDto dto) => AddItemCore(User.GetEmail(), dto);
+
+        [HttpDelete("me/clear")]
+        public Task<IActionResult> ClearMyCart() => ClearCartCore(User.GetEmail());
+
+        [Obsolete("Usare GET /Cart/me: l'identità arriva dal token.")]
         [HttpGet("{email}")]
         public async Task<IActionResult> GetCart(string email)
         {
             if (!User.HasEmail(email))
                 return Forbid();
+
+            return await GetCartCore(email);
+        }
+
+        [Obsolete("Usare POST /Cart/me/add: l'identità arriva dal token.")]
+        [HttpPost("{email}/add")]
+        public async Task<IActionResult> AddItem(string email, [FromBody] CartItemDto dto)
+        {
+            if (!User.HasEmail(email))
+                return Forbid();
+
+            return await AddItemCore(email, dto);
+        }
+
+        private async Task<IActionResult> GetCartCore(string? email)
+        {
+            if (string.IsNullOrEmpty(email))
+                return this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
 
             var cart = await _cartService.GetCartByEmailAsync(email);
             if (cart == null)
@@ -45,21 +74,25 @@ namespace VTInformatica.Controllers
             return Ok(cart);
         }
 
-        [HttpPost("{email}/add")]
-        public async Task<IActionResult> AddItem(string email, [FromBody] CartItemDto dto)
+        private async Task<IActionResult> AddItemCore(string? email, CartItemDto dto)
         {
-            if (!User.HasEmail(email))
-                return Forbid();
-
             // Controllo ridondante (fuori scope M2 n. 9, M3d): resta, nel formato unico.
-            var userId = User.FindFirst(ClaimTypes.Email)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            if (string.IsNullOrEmpty(email))
                 return this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
 
             // Prodotto inesistente (404) e stock insufficiente (409): eccezioni di dominio,
             // le traduce GlobalExceptionHandler.
             await _cartService.AddItemAsync(email, dto);
             return Ok(new { Message = "Item Added succesfully!" });
+        }
+
+        private async Task<IActionResult> ClearCartCore(string? email)
+        {
+            if (string.IsNullOrEmpty(email))
+                return this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
+
+            var success = await _cartService.ClearCartAsync(email);
+            return success ? NoContent() : NotFound();
         }
 
         [HttpDelete("{itemId}/delete")]
@@ -87,14 +120,14 @@ namespace VTInformatica.Controllers
             return Ok(new { message = "Quantità dell'articolo aggiornata con successo." });
         }
 
+        [Obsolete("Usare DELETE /Cart/me/clear: l'identità arriva dal token.")]
         [HttpDelete("{email}/clear")]
         public async Task<IActionResult> ClearCart(string email)
         {
             if (!User.HasEmail(email))
                 return Forbid();
 
-            var success = await _cartService.ClearCartAsync(email);
-            return success ? NoContent() : NotFound();
+            return await ClearCartCore(email);
         }
     }
 

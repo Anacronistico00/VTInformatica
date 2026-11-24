@@ -48,6 +48,30 @@ namespace VTInformatica.Controllers
             return Ok(order);
         }
 
+        // Route con identità dal token (M3c1): l'email non viaggia mai nell'URL.
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetMyOrders()
+        {
+            var email = User.GetEmail();
+            if (string.IsNullOrEmpty(email))
+                return this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
+
+            return Ok(await _orderService.GetOrdersByEmailAsync(email));
+        }
+
+        [HttpPost("me/from-cart")]
+        [Authorize]
+        public async Task<IActionResult> CreateMyOrderFromCart()
+        {
+            var email = User.GetEmail();
+            if (string.IsNullOrEmpty(email))
+                return this.ApiProblem(StatusCodes.Status401Unauthorized, "unauthorized", "Utente non autenticato.");
+
+            return await CreateOrderCore(email);
+        }
+
+        [Obsolete("Usare GET /Order/me: l'identità arriva dal token.")]
         [HttpGet("user/{email}")]
         [Authorize]
         public async Task<IActionResult> GetOrdersByEmail(string email)
@@ -58,6 +82,7 @@ namespace VTInformatica.Controllers
             return Ok(await _orderService.GetOrdersByEmailAsync(email));
         }
 
+        [Obsolete("Usare POST /Order/me/from-cart: l'identità arriva dal token.")]
         [HttpPost("from-cart/{userEmail}")]
         [Authorize]
         public async Task<IActionResult> CreateOrderFromCart(string userEmail)
@@ -66,9 +91,14 @@ namespace VTInformatica.Controllers
             if (!User.HasEmail(userEmail))
                 return Forbid();
 
+            return await CreateOrderCore(userEmail);
+        }
+
+        private async Task<IActionResult> CreateOrderCore(string email)
+        {
             // Carrello vuoto (409), prodotto inesistente (404) e stock insufficiente (409) sono
             // eccezioni di dominio: le traduce GlobalExceptionHandler.
-            var order = await _orderService.CreateOrderFromCartAsync(userEmail);
+            var order = await _orderService.CreateOrderFromCartAsync(email);
             return CreatedAtAction(nameof(Get), new { id = order.Id }, order);
         }
 
