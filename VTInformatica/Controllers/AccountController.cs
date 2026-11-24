@@ -41,27 +41,12 @@ namespace VTInformatica.Controllers
                 return BadRequest(new { message = "Sei già loggato. Non puoi registrarti di nuovo." });
             }
 
+            // AUDIT #9: anche un utente disattivato è "già registrato". Prima la registrazione ne
+            // sovrascriveva il profilo senza password; la riattivazione non passa da qui.
+            // Stessa risposta per attivi e disattivati: non rivela lo stato dell'account.
             var existingUser = await _userManager.FindByEmailAsync(registerRequestDto.Email);
             if (existingUser != null)
             {
-                if (!existingUser.IsActive)
-                {
-                    existingUser.Email = registerRequestDto.Email;
-                    existingUser.UserName = registerRequestDto.Email;
-                    existingUser.FirstName = registerRequestDto.FirstName;
-                    existingUser.LastName = registerRequestDto.LastName;
-                    existingUser.BirthDate = registerRequestDto.BirthDate;
-
-                    var updateResult = await _userManager.UpdateAsync(existingUser);
-                    if (!updateResult.Succeeded)
-                    {
-                        var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
-                        return BadRequest(new { message = "Errore nella riattivazione dell’utente", errors });
-                    }
-
-                    return Ok(new { message = "Utente riattivato con successo." });
-                }
-
                 return BadRequest(new { message = "Email già registrata" });
             }
 
@@ -72,7 +57,7 @@ namespace VTInformatica.Controllers
                 FirstName = registerRequestDto.FirstName,
                 LastName = registerRequestDto.LastName,
                 BirthDate = registerRequestDto.BirthDate,
-                IsActive = registerRequestDto.IsActive,
+                IsActive = true, // mai dal client (AUDIT #9)
             };
 
             // Verifico se la password soddisfa i criteri
