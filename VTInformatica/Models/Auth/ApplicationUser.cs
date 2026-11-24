@@ -17,6 +17,18 @@ namespace VTInformatica.Models.Auth
 
         [Required]
         public required bool IsActive { get; set; }
+
+        // Valorizzati solo quando IsActive è false, azzerati alla riattivazione.
+        public DeactivationReason? DeactivationReason { get; set; }
+
+        // Obbligatoria per il ban, facoltativa quando il cliente cancella il proprio account.
+        // Mai restituita al cliente.
+        [MaxLength(500)]
+        public string? DeactivationNote { get; set; }
+
+        // UTC. Null per gli utenti disattivati prima della migration AccountDeactivation.
+        public DateTime? DeactivatedAt { get; set; }
+
         public Cart? Cart { get; set; }
 
         public ICollection<ApplicationUserRole> ApplicationUserRoles { get; set; }
