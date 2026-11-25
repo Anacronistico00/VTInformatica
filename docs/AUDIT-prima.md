@@ -672,3 +672,23 @@ senza risultati per `Cart/{email}`, `Order/user/`, `from-cart/{email}` (il FE us
 | Chiave email → `UserId` nel DB     | Aperto | Carrello e ordini sono ancora legati all'email (`Cart.Email`, `Order.CustomerEmail`): migrazione con backfill, fuori da questa fetta                                          |
 
 - Test: 245 → 240 (−5 test sulla proprietà via email; i 5 casi `[Obsolete]` sono diventati 5 casi "route assenti"). Avvisi: 0.
+
+## Stato avanzamento – test di integrazione su SQL Server (aggiornato 2026-11-25)
+
+Branch `test/sqlserver-integration`. Progetto `VTInformatica.IntegrationTests` (fuori da `VTInformatica.sln`).
+
+| Voce                                  | Stato  | Come                                                                                                                                                                                                                  |
+| ------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Race reale sullo stock                | Chiuso | 12 checkout paralleli su uno stock di 7 (quantità 2) via HTTP, SQL Server 2022 in container: esattamente 3 riusciti, 9 × 409 `insufficient_stock`, stock finale 1, mai negativo. Mutando `Quantity >= qty` in `>= 0` il test fallisce (4 riusciti) |
+| Ramo SQL Server 547 non testato       | Chiuso | Un interceptor inserisce una sottocategoria con un'altra connessione subito prima della `DELETE FROM [Categories]`: SQL Server dà 547 e il gestore risponde 409 `resource_in_use`. Un secondo test copre la strada normale (verifica nel service) |
+| Migration verificate in CI            | Chiuso | Il DB di test si crea con le migration vere (`Migrate`, non `EnsureCreated`). Un test fa `Down` fino a `0` e `Up` di nuovo su DB vuoto; nel job CI anche `dotnet ef migrations has-pending-model-changes`                  |
+| Unicità di `OrderNumber`              | Chiuso | Due ordini con lo stesso numero: errore SQL 2601 dall'indice unique creato dalla migration                                                                                                                            |
+| `dotnet test` veloce, senza Docker    | Chiuso | Il progetto non è nella soluzione: gli Integration si lanciano con `dotnet test VTInformatica.IntegrationTests`. Senza Docker falliscono con un messaggio chiaro (mai skip). `INTEGRATION_SQLSERVER` permette di usare un server esistente |
+| CI                                    | Chiuso | Job `integration` separato (ubuntu, Docker)                                                                                                                                                                           |
+
+- Provati in locale su SQL Server Express (senza Docker, che sul PC non c'è): 5/5 verdi. Primo run nel container solo in CI.
+- Non coperto: la corsa tra `Restore` e `Cancel` dello stesso ordine su SQL Server (resta il test deterministico su SQLite); deadlock con carrelli multi-prodotto.
+
+- E2E del FE in CI (aggiornato 2026-11-25): il workflow `E2E` del repo FE fa il checkout del branch `master` di questo repo,
+  applica le migration su un container `mssql` e lancia i flussi Playwright. Chiude, insieme al job `integration`, il limite
+  "test su SQL Server reale in CI".

@@ -10,8 +10,8 @@ It started as a course final project (tag `v1-epicode`), then went through an au
 
 - ASP.NET Core Web API (net10.0, .NET 10 LTS), Entity Framework Core 10, SQL Server
 - ASP.NET Identity + JWT Bearer, Serilog, Swagger
-- Tests: xUnit + `WebApplicationFactory`, in-memory SQLite (no secrets and no SQL Server needed)
-- CI: GitHub Actions (restore, Release build, test)
+- Tests: xUnit + `WebApplicationFactory`, in-memory SQLite (no secrets, no SQL Server); integration tests on a real SQL Server with Testcontainers
+- CI: GitHub Actions (build and test; separate job with SQL Server in a container)
 
 ## Architecture
 
@@ -86,7 +86,19 @@ Prerequisites: .NET 10 SDK, SQL Server (Express is fine), `dotnet-ef` (`dotnet t
 dotnet test VTInformatica.sln
 ```
 
-Tests use in-memory SQLite and a test JWT key: no setup. The end-to-end tests (real browser + BE + SQL Server) live in the FE repo: see the E2E section of its README.
+Tests use in-memory SQLite and a test JWT key: no setup, no Docker.
+
+### Integration tests on SQL Server
+
+```bash
+dotnet test VTInformatica.IntegrationTests
+```
+
+The project is outside `VTInformatica.sln`, so `dotnet test VTInformatica.sln` stays fast. It starts an `mssql/server:2022` container with Testcontainers (Docker required), creates an empty database per test and applies the **real migrations**. It checks: a real stock race (12 parallel checkouts on 7 items: exactly 3 succeed, the rest get 409 `insufficient_stock`, stock never negative), the 547 safety net on delete (409 `resource_in_use`), `OrderNumber` uniqueness, `Down` and `Up` of every migration on an empty DB. Without Docker the tests **fail** with a clear message; they are never skipped. Alternatively point `INTEGRATION_SQLSERVER` at an existing SQL Server (connection string to `master`; the `vt_it_*` databases it creates are dropped at the end). In CI they run in the `integration` job.
+
+Mutation test on the race: if the condition in the `OrderService` decrement changes from `Quantity >= item.Quantity` to `Quantity >= 0`, successful checkouts go from 3 to 4 and the test fails (`Expected: 3, Actual: 4`). So the test depends on the atomic condition of the `UPDATE`, not on request timing.
+
+The end-to-end tests (real browser + BE + SQL Server) live in the FE repo: see the E2E section of its README. In CI they run on the FE's PRs against this repo's `master` branch.
 
 ## Before / after
 
@@ -128,7 +140,7 @@ I used Claude Code for most of the code. The process changed over time.
 - **Milestones and slices.** The audit became milestones (M0–M4), split into small slices: one task, one branch, small commits, PR into `develop` with green CI, `main`/`master` only at the end of a milestone with an annotated tag.
 - **M1–M2: everything approved by hand, plans reviewed by a second model.** I approved every agent action. I approved every local commit by hand after checking it; if something was wrong, I wrote a fix prompt. I reviewed every plan, produced in plan mode, in a separate conversation with another model acting as reviewer, and only then gave the agent the go-ahead. The early plans are not saved as files: what remains is plan mode and the review conversation. From M3c1 on the plans are in `docs/` ([`PIANO-M3c1`](docs/PIANO-M3c1.md), [`PIANO-M3c2`](docs/PIANO-M3c2.md), [`PIANO-M3d`](docs/PIANO-M3d.md), [`PIANO-review-mine`](docs/PIANO-review-mine.md), in Italian). The review produced concrete corrections:
   - **Role seed drift.** Roles were seeded with `Guid.NewGuid()`: a new migration would have deleted and re-inserted the roles, emptying `AspNetUserRoles`. Found before generating the migration. Fixed GUIDs, identical to the existing DBs, plus a test comparing model and snapshot.
-  - **Concurrency test measuring at the wrong point.** It read stock after the rollback, so it proved nothing about the decrement. SQLite cannot run real parallel requests: an interceptor deterministically simulates the concurrent ordering, and the test measures stock right after the `UPDATE`, before the rollback. The real race is deferred to Testcontainers.
+  - **Concurrency test measuring at the wrong point.** It read stock after the rollback, so it proved nothing about the decrement. SQLite cannot run real parallel requests: an interceptor deterministically simulates the concurrent ordering, and the test measures stock right after the `UPDATE`, before the rollback. The real race lives in `VTInformatica.IntegrationTests`, on a real SQL Server.
   - **Slices too large.** M3 was a single block. I split it (a1, a2, b, c1, c2, d) so each piece could be reviewed and reverted on its own.
   - **Parallel `/me` routes.** To move identity into the token I did not break the FE: `/Cart/me` and `/Order/me` were added next to the `{email}` routes, which stayed `[Obsolete]` until the FE had migrated and were removed afterwards.
 - **Test-first, red commit → fix.** For every flaw or bug: first a failing test (`test: red - …` commit), then the minimal fix. The git history shows the pairs.
@@ -142,7 +154,6 @@ What the AI did not replace: deciding what is in scope, checking the numbers, tr
 
 From the audit ("out of scope" sections and future milestones):
 
-- **Tests against a real SQL Server in CI.** BE tests use in-memory SQLite; migrations and concurrency on the real DB are checked by hand. Next step: Testcontainers (or an `mssql` container in GitHub Actions) for the BE and for the FE E2E tests, which currently run locally only.
 - **SuperAdmin and email.** Admins are currently created by hand in the DB. Planned: a `SuperAdmin` role, `POST /Account/admins` with an email invitation (single-use, expiring Identity token), `POST /Account/set-password`, protection of the last SuperAdmin. Prerequisite: an `IEmailSender` (Mailpit/smtp4dev in development, SMTP in production); the same infrastructure enables "forgot password".
 - **Email → id.** The `{email}` routes of Cart and Order have been removed: only `/me` is left. Still to do: migrating the key from email to `UserId` in the DB, since cart and orders are still tied to the email (`Cart.Email`, `Order.CustomerEmail`).
 - **httpOnly cookie.** The JWT sits in `localStorage` (via redux-persist): an XSS can read it. The fix is an httpOnly cookie + refresh token, which needs BE changes. A CSP must be set as an HTTP header at deploy time.
