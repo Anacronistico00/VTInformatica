@@ -108,7 +108,6 @@ Numbers are **recomputed from the tags** (clean worktree per tag, `dotnet build 
 
 Notes:
 
-- The 114 warnings at `v1-epicode` were recounted on the tag; the M3d report quoted 109 because it was measured on a different commit. Almost all are nullability (`CS8618`, `CS8604`, …); brought to 0 without turning checks off.
 - Diff lines include tests and migrations (most of the growth).
 - The 8 E2E flows were not re-run for this table: they only run locally, not in CI.
 - The FE CI does not run the E2E tests (it would need SQL Server on the runner).
@@ -123,15 +122,19 @@ Audit items closed, per tag (details in [`docs/AUDIT-prima.md`](docs/AUDIT-prima
 
 ## How I worked with AI
 
-I used Claude Code for most of the code; decisions and checks stayed with me. Concretely:
+I used Claude Code for most of the code. The process changed over time.
 
-- **The initial audit as the source of truth.** Before touching code I had an audit produced and reviewed ([`docs/AUDIT-prima.md`](docs/AUDIT-prima.md)): problems ranked by severity plus starting metrics. The baseline is never rewritten; each milestone appends a status section (closed / moved / out of scope).
-- **Milestones and slices.** Work is split into milestones (M0–M4), each into small slices (M3a1, M3a2, M3b, M3c1, M3c2, M3d, M4a–M4g): one task, one branch, small commits, PR into `develop` with green CI, `main`/`master` only at the end of a milestone with an annotated tag.
-- **Plan mode and plan review.** For every non-trivial slice the agent proposed a plan (`docs/PIANO-*.md`) and I corrected it before giving the go-ahead. The rules live in `CLAUDE.md`: plan before code, minimal changes, no unrequested rewrites, no AI attribution in commits or PRs.
-- **Test-first, red commit → fix.** For every flaw or bug: first a failing test (separate commit, `test: red - …`), then the minimal fix. The git history shows the pairs.
-- **Manual migration checks on SQL Server.** The tests run on SQLite, which is not SQL Server. For migrations: backup with `RESTORE VERIFYONLY`, `database update`, `Down` and `Up` on a copy with real data, counts before and after (`AspNetUserRoles`, products, orders).
-- **Moving to autonomy with a deny list.** In the first slices every step was approved. Once rules and tests were solid enough, the agent worked autonomously within explicit limits: a deny list in `.claude/settings.json` (force push, `git reset --hard`, `git filter-repo`, `rm -rf`, reading `.env*` and secrets) and the `CLAUDE.md` rules (no direct push or merge to `main`/`develop`, everything goes through a PR).
-- **E2E tests that found a real bug.** Unit tests with a simulated network did not see it: Playwright against the real BE and DB exposed the NavBar crash. When Redux persistence dropped an expired slice (expired token, cart idle for over an hour), redux-persist's `autoMergeLevel1` copied `undefined` over the initial state and the app crashed on startup. Fixed test-first (red commit, then fix).
+- **Initial audit as the source of truth.** Before touching code I had an audit produced and reviewed ([`docs/AUDIT-prima.md`](docs/AUDIT-prima.md), in Italian): problems ranked by severity plus starting metrics. The baseline is never rewritten. Each slice appends a status section: closed, moved, out of scope.
+- **Milestones and slices.** The audit became milestones (M0–M4), split into small slices: one task, one branch, small commits, PR into `develop` with green CI, `main`/`master` only at the end of a milestone with an annotated tag.
+- **M1–M2: everything approved by hand, plans reviewed by a second model.** I approved every agent action. I reviewed every plan (`docs/PIANO-*.md`) in a separate conversation with another model acting as reviewer, and only then gave the agent the go-ahead. The review produced concrete corrections:
+  - **Role seed drift.** Roles were seeded with `Guid.NewGuid()`: a new migration would have deleted and re-inserted the roles, emptying `AspNetUserRoles`. Found before generating the migration. Fixed GUIDs, identical to the existing DBs, plus a test comparing model and snapshot.
+  - **Wrong concurrency test.** It measured stock after the rollback, so it did not prove the decrement was atomic. Rewritten to check the outcome of two parallel requests.
+  - **Slices too large.** M3 was a single block. I split it (a1, a2, b, c1, c2, d) so each piece could be reviewed and reverted on its own.
+  - **Parallel `/me` routes.** To move identity into the token I did not break the FE: `/Cart/me` and `/Order/me` were added next to the `{email}` routes, which stay `[Obsolete]` until the FE has migrated.
+- **Test-first, red commit → fix.** For every flaw or bug: first a failing test (`test: red - …` commit), then the minimal fix. The git history shows the pairs.
+- **Manual migration checks on SQL Server.** The tests run on SQLite, which is not SQL Server. Every migration: backup with `RESTORE VERIFYONLY`, `database update`, `Down` and `Up` on a copy with real data, counts before and after (`AspNetUserRoles`, products, orders).
+- **From M3c: autonomy with a deny list.** Once rules and process had settled, the agent worked autonomously within explicit limits. The deny list lives in `.claude/settings.json` (force push, `git reset --hard`, `git filter-repo`, `rm -rf`, reading `.env*` and secrets). The `CLAUDE.md` rules forbid direct push and merge to `main` and `develop`: everything goes through a PR.
+- **E2E tests found the NavBar crash.** It was already noted in the initial audit, but tests with a simulated network never reproduced it. Playwright against the real BE and DB did. When persistence dropped an expired slice (expired token, cart idle for over an hour), redux-persist's `autoMergeLevel1` copied `undefined` over the initial state and `state.auth` and `state.cart` were `undefined` on startup. Fixed test-first: dropped slices fall back to the initial state.
 
 What the AI did not replace: deciding what is in scope, checking the numbers, trying migrations on the real DB, reading the diff before merging.
 
