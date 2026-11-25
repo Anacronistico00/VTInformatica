@@ -96,6 +96,8 @@ dotnet test VTInformatica.IntegrationTests
 
 The project is outside `VTInformatica.sln`, so `dotnet test VTInformatica.sln` stays fast. It starts an `mssql/server:2022` container with Testcontainers (Docker required), creates an empty database per test and applies the **real migrations**. It checks: a real stock race (12 parallel checkouts on 7 items: exactly 3 succeed, the rest get 409 `insufficient_stock`, stock never negative), the 547 safety net on delete (409 `resource_in_use`), `OrderNumber` uniqueness, `Down` and `Up` of every migration on an empty DB. Without Docker the tests **fail** with a clear message; they are never skipped. Alternatively point `INTEGRATION_SQLSERVER` at an existing SQL Server (connection string to `master`; the `vt_it_*` databases it creates are dropped at the end). In CI they run in the `integration` job.
 
+Mutation test on the race: if the condition in the `OrderService` decrement changes from `Quantity >= item.Quantity` to `Quantity >= 0`, successful checkouts go from 3 to 4 and the test fails (`Expected: 3, Actual: 4`). So the test depends on the atomic condition of the `UPDATE`, not on request timing.
+
 The end-to-end tests (real browser + BE + SQL Server) live in the FE repo: see the E2E section of its README. In CI they run on the FE's PRs against this repo's `master` branch.
 
 ## Before / after
