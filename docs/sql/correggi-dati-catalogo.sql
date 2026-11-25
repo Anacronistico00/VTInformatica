@@ -18,4 +18,27 @@ UPDATE Categories
 SET Name = N'Periferiche'
 WHERE Id = 2 AND Name = N'Perferiche';
 
+-- Sottocategoria 3: "RAMs" -> "RAM" (sigla al singolare come le altre voci).
+UPDATE SubCategories
+SET Name = N'RAM'
+WHERE Id = 3 AND Name = N'RAMs';
+
+-- Loghi dei produttori. ASUS e Noctua avevano un URL che non risponde (404 / 429 ai client
+-- automatici); ThermalRight (bianco) e Seagate (grigio chiaro) non si leggono su fondo chiaro.
+UPDATE Manufacturers
+SET ManufacturerLogo = N'https://upload.wikimedia.org/wikipedia/commons/8/86/Asus_blue_logo.svg'
+WHERE ManufacturerId = 4 AND ManufacturerName = N'ASUS';
+
+UPDATE Manufacturers
+SET ManufacturerLogo = N'https://iconlogovector.com/uploads/images/2025/02/lg-67b068892fe4d-Thermalright.webp'
+WHERE ManufacturerId = 8 AND ManufacturerName = N'ThermalRight';
+
+UPDATE Manufacturers
+SET ManufacturerLogo = N'https://upload.wikimedia.org/wikipedia/commons/6/68/Noctua_wordmark.svg'
+WHERE ManufacturerId = 11 AND ManufacturerName = N'Noctua';
+
+UPDATE Manufacturers
+SET ManufacturerLogo = N'https://upload.wikimedia.org/wikipedia/commons/b/b6/Seagate-Logo.svg'
+WHERE ManufacturerId = 13 AND ManufacturerName = N'Seagate';
+
 COMMIT TRANSACTION;
