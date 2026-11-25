@@ -96,7 +96,7 @@ dotnet test VTInformatica.IntegrationTests
 
 Il progetto è fuori da `VTInformatica.sln`, quindi `dotnet test VTInformatica.sln` resta veloce. Avvia un container `mssql/server:2022` con Testcontainers (serve Docker), crea un database vuoto per test e ci applica le **migration vere**. Verifica: race reale sullo stock (12 checkout paralleli su 7 pezzi: esattamente 3 riusciti, gli altri 409 `insufficient_stock`, stock mai negativo), rete di sicurezza 547 su delete (409 `resource_in_use`), unicità di `OrderNumber`, `Down` e `Up` di tutte le migration su DB vuoto. Senza Docker i test **falliscono** con un messaggio chiaro, non vengono saltati. In alternativa si può puntare a un SQL Server esistente con `INTEGRATION_SQLSERVER` (connection string verso `master`; i database `vt_it_*` creati vengono eliminati a fine run). In CI girano nel job `integration`.
 
-Gli E2E (browser + BE + SQL Server veri) stanno nel repo del FE: vedi la sezione E2E del suo README.
+Gli E2E (browser + BE + SQL Server veri) stanno nel repo del FE: vedi la sezione E2E del suo README. In CI girano sulle PR del FE contro il branch `master` di questo repo.
 
 ## Prima / dopo
 

@@ -688,3 +688,7 @@ Branch `test/sqlserver-integration`. Progetto `VTInformatica.IntegrationTests` (
 
 - Provati in locale su SQL Server Express (senza Docker, che sul PC non c'è): 5/5 verdi. Primo run nel container solo in CI.
 - Non coperto: la corsa tra `Restore` e `Cancel` dello stesso ordine su SQL Server (resta il test deterministico su SQLite); deadlock con carrelli multi-prodotto.
+
+- E2E del FE in CI (aggiornato 2026-11-25): il workflow `E2E` del repo FE fa il checkout del branch `master` di questo repo,
+  applica le migration su un container `mssql` e lancia i flussi Playwright. Chiude, insieme al job `integration`, il limite
+  "test su SQL Server reale in CI".
