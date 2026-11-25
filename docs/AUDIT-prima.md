@@ -658,3 +658,17 @@ Branch `chore/dotnet10`. .NET 8 esce dal supporto a novembre 2026.
   (solo informativo), parametri multipli per `Contains()` (una sola query, `OrderService`: gli id dei prodotti del
   carrello, poche unità; risultati invariati). `IExceptionHandler` che ritorna `true` sopprime la diagnostica: i test del gestore
   errori restano verdi.
+
+## Stato avanzamento – rimozione delle route `{email}` (aggiornato 2026-11-25)
+
+Branch `chore/remove-email-routes`. Prima della rimozione: `grep` su `../vtinformatica_fe/src` e `e2e`
+senza risultati per `Cart/{email}`, `Order/user/`, `from-cart/{email}` (il FE usa solo `/me` e le route per id).
+
+| Voce                               | Stato  | Come                                                                                                                                                                         |
+| ---------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route `[Obsolete]` con `{email}`   | Chiuso | Rimosse `GET /Cart/{email}`, `POST /Cart/{email}/add`, `DELETE /Cart/{email}/clear`, `GET /Order/user/{email}`, `POST /Order/from-cart/{email}`. Test rosso: ora rispondono 404 |
+| Test sulle route rimosse           | Chiuso | Quelli usati come mezzo (setup, lettura) passano a `/me`. Rimossi i 5 che verificavano la proprietà tramite l'email di un altro utente: con l'identità solo dal token il caso non esiste più. `CreateFromCart_OtherUsersCartStaysUntouched` verifica che B non tocchi il carrello di A |
+| Lettura ordini di altri (Admin)    | Chiuso | Non più via email: restano `GET /Order` (paginato, staff) e `GET /Order/{id}`                                                                                                |
+| Chiave email → `UserId` nel DB     | Aperto | Carrello e ordini sono ancora legati all'email (`Cart.Email`, `Order.CustomerEmail`): migrazione con backfill, fuori da questa fetta                                          |
+
+- Test: 245 → 240 (−5 test sulla proprietà via email; i 5 casi `[Obsolete]` sono diventati 5 casi "route assenti"). Avvisi: 0.
