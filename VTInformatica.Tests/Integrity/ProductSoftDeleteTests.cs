@@ -30,7 +30,7 @@ public class ProductSoftDeleteTests
         await DeleteProductAsAdminAsync(productId);
 
         var client = TestHelpers.AuthorizedClient(_factory, token);
-        var orders = await client.GetFromJsonAsync<List<GetOrderDto>>($"/Order/user/{email}");
+        var orders = await client.GetFromJsonAsync<List<GetOrderDto>>("/Order/me");
 
         var item = Assert.Single(Assert.Single(orders!).Items);
         Assert.Equal(2, item.Quantity);
@@ -69,12 +69,12 @@ public class ProductSoftDeleteTests
         var keptId = await TestHelpers.SeedProductAsync(_factory, quantity: 10, price: 30m);
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, deletedId, quantity: 1)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, keptId, quantity: 2)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, deletedId, quantity: 1)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, keptId, quantity: 2)).StatusCode);
 
         await DeleteProductAsAdminAsync(deletedId);
 
-        var cart = await client.GetFromJsonAsync<GetCartDto>($"/Cart/{email}");
+        var cart = await client.GetFromJsonAsync<GetCartDto>("/Cart/me");
         Assert.Equal(2, Assert.Single(cart!.Items).Quantity);
         Assert.Equal(60m, cart.TotalPrice);
     }
@@ -90,7 +90,7 @@ public class ProductSoftDeleteTests
         var client = TestHelpers.AuthorizedClient(_factory, token);
         Assert.Equal(HttpStatusCode.OK, (await client.PutAsync($"/Order/{order.Id}/delete", null)).StatusCode);
 
-        var orders = await client.GetFromJsonAsync<List<GetOrderDto>>($"/Order/user/{email}");
+        var orders = await client.GetFromJsonAsync<List<GetOrderDto>>("/Order/me");
         var cancelled = Assert.Single(orders!);
         Assert.True(cancelled.IsDeleted);
         Assert.Equal(3, Assert.Single(cancelled.Items).Quantity);

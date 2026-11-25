@@ -27,7 +27,7 @@ public class OrderMetadataTests
 
         var response = useMeRoute
             ? await client.PostAsJsonAsync("/Order/me/from-cart", new { customerComment = "Citofono rotto, chiamare" })
-            : await client.PostAsJsonAsync($"/Order/from-cart/{email}", new { customerComment = "Citofono rotto, chiamare" });
+            : await client.PostAsJsonAsync("/Order/me/from-cart", new { customerComment = "Citofono rotto, chiamare" });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var order = await response.Content.ReadFromJsonAsync<GetOrderDto>();
@@ -77,7 +77,7 @@ public class OrderMetadataTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productId, 1)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productId, 1)).StatusCode);
         return (client, email);
     }
 }

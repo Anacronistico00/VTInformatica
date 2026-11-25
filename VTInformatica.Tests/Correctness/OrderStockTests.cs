@@ -30,7 +30,7 @@ public class OrderStockTests : IClassFixture<FaultInjectionFactory>
         _factory.ConcurrentStockWriter.Arm(productId, stockWrittenByOtherOrder: 1);
         try
         {
-            response = await client.PostAsync($"/Order/from-cart/{email}", null);
+            response = await client.PostAsync("/Order/me/from-cart", null);
         }
         finally
         {
@@ -54,7 +54,7 @@ public class OrderStockTests : IClassFixture<FaultInjectionFactory>
         var (email, client) = await NewUserWithCartAsync((productId, 3));
         await SetProductStockAsync(productId, 2);
 
-        var response = await client.PostAsync($"/Order/from-cart/{email}", null);
+        var response = await client.PostAsync("/Order/me/from-cart", null);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal(2, await TestHelpers.GetProductStockAsync(_factory, productId));
@@ -69,7 +69,7 @@ public class OrderStockTests : IClassFixture<FaultInjectionFactory>
         var (email, client) = await NewUserWithCartAsync((productA, 2), (productB, 3));
         await SetProductStockAsync(productB, 1);
 
-        var response = await client.PostAsync($"/Order/from-cart/{email}", null);
+        var response = await client.PostAsync("/Order/me/from-cart", null);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal(10, await TestHelpers.GetProductStockAsync(_factory, productA));
@@ -83,7 +83,7 @@ public class OrderStockTests : IClassFixture<FaultInjectionFactory>
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
         foreach (var (productId, quantity) in items)
         {
-            Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productId, quantity)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productId, quantity)).StatusCode);
         }
         return (email, client);
     }

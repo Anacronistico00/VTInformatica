@@ -78,29 +78,6 @@ namespace VTInformatica.Controllers
             return await CreateOrderCore(email, dto);
         }
 
-        [Obsolete("Usare GET /Order/me: l'identità arriva dal token.")]
-        [HttpGet("user/{email}")]
-        [Authorize]
-        public async Task<IActionResult> GetOrdersByEmail(string email)
-        {
-            if (!User.HasEmail(email) && !User.IsStaff())
-                return Forbid();
-
-            return Ok(await _orderService.GetOrdersByEmailAsync(email));
-        }
-
-        [Obsolete("Usare POST /Order/me/from-cart: l'identità arriva dal token.")]
-        [HttpPost("from-cart/{userEmail}")]
-        [Authorize]
-        public async Task<IActionResult> CreateOrderFromCart(string userEmail, [FromBody] CreateOrderFromCartDto? dto = null)
-        {
-            // Nessuna eccezione per Admin/Seller: si ordina solo dal proprio carrello.
-            if (!User.HasEmail(userEmail))
-                return Forbid();
-
-            return await CreateOrderCore(userEmail, dto);
-        }
-
         private async Task<IActionResult> CreateOrderCore(string email, CreateOrderFromCartDto? dto)
         {
             // Carrello vuoto (409), prodotto inesistente (404) e stock insufficiente (409) sono

@@ -47,7 +47,7 @@ public class OrderTests
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
 
-        var response = await client.PostAsync($"/Order/from-cart/{email}", null);
+        var response = await client.PostAsync("/Order/me/from-cart", null);
 
         await ProblemAssert.IsProblemAsync(response, HttpStatusCode.Conflict, "cart_empty");
     }
@@ -68,13 +68,13 @@ public class OrderTests
     }
 
     [Fact]
-    public async Task GetOrdersByEmail_OwnEmail_Returns200WithOwnOrders()
+    public async Task GetMyOrders_Returns200WithOwnOrders()
     {
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var (emailA, tokenA, orderA) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 1);
         var clientA = TestHelpers.AuthorizedClient(_factory, tokenA);
 
-        var response = await clientA.GetAsync($"/Order/user/{emailA}");
+        var response = await clientA.GetAsync("/Order/me");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var orders = await response.Content.ReadFromJsonAsync<List<GetOrderDto>>();
@@ -83,49 +83,19 @@ public class OrderTests
     }
 
     [Fact]
-    public async Task GetOrdersByEmail_OtherUsersEmail_Returns403()
+    public async Task CreateFromCart_OtherUsersCartStaysUntouched()
     {
-        // AUDIT #2: l'email della route deve coincidere con quella del JWT.
-        var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
-        var (emailA, _, _) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 1);
-        var tokenB = await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail());
-        var clientB = TestHelpers.AuthorizedClient(_factory, tokenB);
-
-        var response = await clientB.GetAsync($"/Order/user/{emailA}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetOrdersByEmail_AsAdmin_OtherUsersEmail_Returns200()
-    {
-        // Admin e Seller possono leggere gli ordini di qualunque utente.
-        var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
-        var (emailA, _, orderA) = await TestHelpers.CreateUserWithOrderAsync(_factory, productId, quantity: 1);
-        var adminToken = await TestHelpers.RegisterAndLoginAsAdminAsync(_factory, TestHelpers.UniqueEmail());
-        var adminClient = TestHelpers.AuthorizedClient(_factory, adminToken);
-
-        var response = await adminClient.GetAsync($"/Order/user/{emailA}");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var orders = await response.Content.ReadFromJsonAsync<List<GetOrderDto>>();
-        Assert.Equal(orderA.OrderNumber, Assert.Single(orders!).OrderNumber);
-    }
-
-    [Fact]
-    public async Task CreateFromCart_OtherUsersCart_Returns403()
-    {
-        // AUDIT #2: non si può creare un ordine dal carrello di un altro utente.
+        // AUDIT #2: l'ordine parte sempre dal carrello del token: B (carrello vuoto) non tocca quello di A.
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var emailA = TestHelpers.UniqueEmail();
         var clientA = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, emailA));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(clientA, emailA, productId, quantity: 2)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(clientA, productId, quantity: 2)).StatusCode);
         var tokenB = await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail());
         var clientB = TestHelpers.AuthorizedClient(_factory, tokenB);
 
-        var response = await clientB.PostAsync($"/Order/from-cart/{emailA}", null);
+        var response = await clientB.PostAsync("/Order/me/from-cart", null);
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal(10, await TestHelpers.GetProductStockAsync(_factory, productId));
 
         using var scope = _factory.Services.CreateScope();

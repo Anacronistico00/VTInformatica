@@ -16,7 +16,7 @@ public class CartErrorTests
     {
         var (email, client) = await UserAsync();
 
-        var response = await TestHelpers.AddToCartAsync(client, email, productId: 999999, quantity: 1);
+        var response = await TestHelpers.AddToCartAsync(client, productId: 999999, quantity: 1);
 
         await ProblemAssert.IsProblemAsync(response, HttpStatusCode.NotFound, "product_not_found");
     }
@@ -27,7 +27,7 @@ public class CartErrorTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 2);
         var (email, client) = await UserAsync();
 
-        var response = await TestHelpers.AddToCartAsync(client, email, productId, quantity: 3);
+        var response = await TestHelpers.AddToCartAsync(client, productId, quantity: 3);
 
         await ProblemAssert.IsProblemAsync(response, HttpStatusCode.Conflict, "insufficient_stock");
     }

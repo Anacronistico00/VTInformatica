@@ -24,48 +24,6 @@ public class CartOwnershipTests
     // ---- Casi malevoli: B sul carrello di A ----
 
     [Fact]
-    public async Task GetCart_OtherUsersCart_Returns403()
-    {
-        // AUDIT #2: l'email della route deve coincidere con quella del JWT.
-        var (emailA, _, _) = await CreateUserWithCartItemAsync();
-        var clientB = await CreateOtherUserClientAsync();
-
-        var response = await clientB.GetAsync($"/Cart/{emailA}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task AddItem_OtherUsersCart_Returns403()
-    {
-        // AUDIT #2: B non può aggiungere articoli al carrello di A.
-        var (emailA, _, _) = await CreateUserWithCartItemAsync();
-        var otherProductId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
-        var clientB = await CreateOtherUserClientAsync();
-
-        var response = await TestHelpers.AddToCartAsync(clientB, emailA, otherProductId, quantity: 5);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        var itemsA = await GetCartItemsAsync(emailA);
-        var item = Assert.Single(itemsA);
-        Assert.Equal(InitialQuantity, item.Quantity);
-    }
-
-    [Fact]
-    public async Task ClearCart_OtherUsersCart_Returns403()
-    {
-        // AUDIT #2: B non può svuotare il carrello di A.
-        var (emailA, _, _) = await CreateUserWithCartItemAsync();
-        var clientB = await CreateOtherUserClientAsync();
-
-        var response = await clientB.DeleteAsync($"/Cart/{emailA}/clear");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        var item = Assert.Single(await GetCartItemsAsync(emailA));
-        Assert.Equal(InitialQuantity, item.Quantity);
-    }
-
-    [Fact]
     public async Task RemoveItem_OtherUsersItem_Returns404()
     {
         // AUDIT #2: l'item deve appartenere al carrello di chi chiama.
@@ -127,7 +85,7 @@ public class CartOwnershipTests
     {
         var (emailA, clientA, _) = await CreateUserWithCartItemAsync();
 
-        var response = await clientA.DeleteAsync($"/Cart/{emailA}/clear");
+        var response = await clientA.DeleteAsync("/Cart/me/clear");
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.Empty(await GetCartItemsAsync(emailA));
@@ -142,10 +100,10 @@ public class CartOwnershipTests
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
 
-        var add = await TestHelpers.AddToCartAsync(client, email, productId, InitialQuantity);
+        var add = await TestHelpers.AddToCartAsync(client, productId, InitialQuantity);
         Assert.Equal(HttpStatusCode.OK, add.StatusCode);
 
-        var cart = await client.GetFromJsonAsync<GetCartDto>($"/Cart/{email}");
+        var cart = await client.GetFromJsonAsync<GetCartDto>("/Cart/me");
         return (email, client, Assert.Single(cart!.Items).Id);
     }
 

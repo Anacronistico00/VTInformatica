@@ -1,8 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Reflection;
-using Microsoft.AspNetCore.Mvc;
-using VTInformatica.Controllers;
 using VTInformatica.DTOs.Cart;
 using VTInformatica.DTOs.Order;
 using VTInformatica.Tests.Infrastructure;
@@ -10,8 +7,7 @@ using VTInformatica.Tests.Infrastructure;
 namespace VTInformatica.Tests.Correctness;
 
 /// <summary>
-/// Route /Cart/me e /Order/me: identità solo dal token.
-/// Le route con {email} restano (e sono marcate [Obsolete]).
+/// Route /Cart/me e /Order/me: identità solo dal token. Le vecchie route con {email} non esistono più.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class MeRoutesTests
@@ -48,7 +44,7 @@ public class MeRoutesTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var emailA = TestHelpers.UniqueEmail();
         var clientA = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, emailA));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(clientA, emailA, productId, 3)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(clientA, productId, 3)).StatusCode);
         var clientB = TestHelpers.AuthorizedClient(_factory,
             await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail()));
 
@@ -104,16 +100,21 @@ public class MeRoutesTests
     }
 
     [Theory]
-    [InlineData(typeof(CartController), "GetCart")]
-    [InlineData(typeof(CartController), "AddItem")]
-    [InlineData(typeof(CartController), "ClearCart")]
-    [InlineData(typeof(OrderController), "GetOrdersByEmail")]
-    [InlineData(typeof(OrderController), "CreateOrderFromCart")]
-    public void OldEmailRoutes_AreMarkedObsolete(Type controller, string action)
+    [InlineData("GET", "/Cart/{0}")]
+    [InlineData("POST", "/Cart/{0}/add")]
+    [InlineData("DELETE", "/Cart/{0}/clear")]
+    [InlineData("GET", "/Order/user/{0}")]
+    [InlineData("POST", "/Order/from-cart/{0}")]
+    public async Task OldEmailRoutes_AreGone(string method, string urlFormat)
     {
-        var method = controller.GetMethod(action, BindingFlags.Public | BindingFlags.Instance);
+        var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
+        var email = TestHelpers.UniqueEmail();
+        var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
+        // Un carrello con un articolo: se la route esistesse, risponderebbe con un esito diverso da 404.
+        await client.PostAsJsonAsync("/Cart/me/add", new CartItemDto { ProductId = productId, Quantity = 1 });
 
-        Assert.NotNull(method);
-        Assert.NotNull(method!.GetCustomAttribute<ObsoleteAttribute>());
+        var response = await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), string.Format(urlFormat, email)));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }
