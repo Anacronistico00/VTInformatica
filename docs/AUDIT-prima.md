@@ -655,6 +655,6 @@ Branch `chore/dotnet10`. .NET 8 esce dal supporto a novembre 2026.
 - Test: 243 → 245. Avvisi di build: 0.
 - Breaking change lette e non applicabili: `WithOpenApi` deprecato, `WebHost` obsoleto,
   `IPNetwork`, cookie login redirect, `Application Name` nella connection string
-  (solo informativo), parametri multipli per `Contains()` (nessuna query lo usa su collezioni
-  grandi). `IExceptionHandler` che ritorna `true` sopprime la diagnostica: i test del gestore
+  (solo informativo), parametri multipli per `Contains()` (una sola query, `OrderService`: gli id dei prodotti del
+  carrello, poche unità; risultati invariati). `IExceptionHandler` che ritorna `true` sopprime la diagnostica: i test del gestore
   errori restano verdi.
