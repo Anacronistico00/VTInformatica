@@ -36,3 +36,36 @@ jobs:
         with:
           name: test-results
           path: TestResults/*.trx
+
+  # SQL Server vero (container mssql 2022 via Testcontainers): migration, race sullo stock, vincoli.
+  # Fuori da VTInformatica.sln: il job build-and-test resta veloce e senza Docker.
+  integration:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build VTInformatica.IntegrationTests -c Release
+
+      # Il modello deve coincidere con le migration. La chiave serve solo ad avviare l'host degli strumenti EF.
+      - name: Model e migration allineati
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.15
+          dotnet ef migrations has-pending-model-changes --project VTInformatica --no-build -c Release
+        env:
+          Jwt__SecurityKey: ci-only-key-for-ef-tools-0123456789-abcdefghijklmnopqrstuvwxyz
+
+      - name: Integration tests
+        run: dotnet test VTInformatica.IntegrationTests --no-build -c Release --logger trx --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: TestResults/*.trx

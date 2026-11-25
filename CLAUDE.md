@@ -11,7 +11,9 @@
 - Build: `dotnet build VTInformatica.sln`
 - Run: `dotnet run --project VTInformatica` (https://localhost:7286, Swagger in
   Development)
-- Test: `dotnet test`
+- Test: `dotnet test` (veloce, SQLite in-memory, senza Docker)
+- Integrazione su SQL Server vero: `dotnet test VTInformatica.IntegrationTests` (Docker, o
+  `INTEGRATION_SQLSERVER` con la connection string di un server; fuori da `VTInformatica.sln`)
 - Migrazioni: `dotnet ef migrations add <Nome> --project VTInformatica` /
   `dotnet ef database update`
 - DB iniziale: `DatabaseScript.sql` (ruoli Admin, Seller, Customer già inseriti)
@@ -59,7 +61,8 @@
   "sistemarli" senza istruzione esplicita, vanno invertiti solo nella fetta che
   chiude quel punto.
 - DB nei test: SQLite in-memory. Non verifica le migrazioni SQL Server né la
-  concorrenza (stock): quei test richiederanno SQL Server reale.
+  concorrenza (stock): quei test stanno in `VTInformatica.IntegrationTests` (SQL Server
+  vero con Testcontainers, migration vere).
 
 ## Flusso Git
 
