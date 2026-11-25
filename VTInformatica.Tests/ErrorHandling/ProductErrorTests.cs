@@ -11,10 +11,11 @@ namespace VTInformatica.Tests.ErrorHandling;
 [Collection(ApiCollection.Name)]
 public class ProductErrorTests
 {
-    // Riferimenti da HasData che nessun test usa per i prodotti: liste sempre vuote.
-    private const int UnusedCategoryId = 6;
-    private const int UnusedSubCategoryId = 30;
-    private const int UnusedManufacturerId = 21;
+    // Id che nessun test crea (quelli di HasData e dei test sul DB condiviso possono avere prodotti,
+    // a seconda dell'ordine di esecuzione): l'elenco è sempre vuoto e la risposta resta 200 [].
+    private const int UnusedCategoryId = 999_001;
+    private const int UnusedSubCategoryId = 999_002;
+    private const int UnusedManufacturerId = 999_003;
 
     private readonly VtWebApplicationFactory _factory;
 

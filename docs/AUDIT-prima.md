@@ -638,3 +638,23 @@ minori di #15 che erano in M3; i refactor puri sono coperti dai test esistenti.
   `productId`, `reviewRating`, `reviewComment`, `createdAt`), dalla più recente,
   senza email. Serve al FE per offrire modifica ed eliminazione solo sulle
   proprie. Test-first: 240 → 243. Warning: 0.
+
+## Stato avanzamento – upgrade a .NET 10 LTS (aggiornato 2026-11-25)
+
+Branch `chore/dotnet10`. .NET 8 esce dal supporto a novembre 2026.
+
+| Voce                  | Stato  | Come                                                                                                                                                                                                 |
+| --------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Target e pacchetti    | Chiuso | `net10.0` in entrambi i progetti. `Microsoft.*` 8.0.14 → 10.0.15, `Swashbuckle.AspNetCore` 6.6.2 → 10.3.1, `Serilog.AspNetCore` 9.0.0 → 10.0.0, xUnit 2.9.3, `dotnet-ef` 10.0.15. CI con `setup-dotnet` 10.0.x |
+| Swagger               | Chiuso | Swashbuckle 10 usa Microsoft.OpenApi 2.x: `OpenApiSecurityScheme.Reference` rimosso, requirement via `OpenApiSecuritySchemeReference`. Nuovo test sullo schema Bearer (+2 test)                        |
+| Test: EF 9+ e provider | Chiuso | `AddDbContext` registra anche `IDbContextOptionsConfiguration<T>`: la factory dei test lo rimuove, altrimenti SQL Server e SQLite risultano registrati insieme                                         |
+| Test fragile          | Chiuso | Gli id "inutilizzati" di `ProductErrorTests` (6, 30, 21) dipendevano dall'ordine di esecuzione sul DB condiviso; ora sono id che nessun test crea                                                   |
+| Model e migration     | Chiuso | `has-pending-model-changes` pulito: EF 10 non genera migration di normalizzazione, `AspNetRoles` e dati non toccati                                                                                    |
+| DB locale             | Chiuso | Backup con `sqlcmd`, `database update` (nessuna migration da applicare), conteggi invariati (utenti 5, ruoli 3, ruoli utente 5, prodotti 12, ordini 5). API avviata, E2E del FE 8/8 verdi              |
+
+- Test: 243 → 245. Avvisi di build: 0.
+- Breaking change lette e non applicabili: `WithOpenApi` deprecato, `WebHost` obsoleto,
+  `IPNetwork`, cookie login redirect, `Application Name` nella connection string
+  (solo informativo), parametri multipli per `Contains()` (una sola query, `OrderService`: gli id dei prodotti del
+  carrello, poche unità; risultati invariati). `IExceptionHandler` che ritorna `true` sopprime la diagnostica: i test del gestore
+  errori restano verdi.

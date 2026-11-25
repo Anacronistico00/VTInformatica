@@ -8,7 +8,7 @@ Nato come progetto di fine corso (tag `v1-epicode`), è stato poi sottoposto a u
 
 ## Stack
 
-- ASP.NET Core Web API (net8.0), Entity Framework Core 8, SQL Server
+- ASP.NET Core Web API (net10.0, .NET 10 LTS), Entity Framework Core 10, SQL Server
 - ASP.NET Identity + JWT Bearer, Serilog, Swagger
 - Test: xUnit + `WebApplicationFactory`, SQLite in-memory (nessun segreto né SQL Server per i test)
 - CI: GitHub Actions (restore, build Release, test)
@@ -29,7 +29,7 @@ flowchart LR
 
 ## Avvio in locale
 
-Prerequisiti: .NET 8 SDK, SQL Server (anche Express), `dotnet-ef` (`dotnet tool install -g dotnet-ef`).
+Prerequisiti: .NET 10 SDK, SQL Server (anche Express), `dotnet-ef` (`dotnet tool install -g dotnet-ef`).
 
 1. **Clona entrambi i repo** uno accanto all'altro (gli E2E del FE si aspettano `../VTInformatica`):
 
@@ -147,7 +147,6 @@ Dall'audit (sezioni "fuori scope" e milestone future):
 - **Email → id.** Le route `Cart/{email}` e `Order/user/{email}` restano come `[Obsolete]` accanto alle route `/me`: vanno rimosse.
 - **Cookie httpOnly.** Il JWT sta in `localStorage` (via redux-persist): un XSS può leggerlo. La soluzione è cookie httpOnly + refresh token, che richiede modifiche al BE. Al deploy va impostata una CSP come header HTTP.
 - **Seller nel backoffice.** Il BE consente a `Seller` prodotti e categorie, il backoffice del FE è solo per `Admin`.
-- **.NET 8 fuori supporto da novembre 2026.** Prossimo passo: upgrade a .NET 10 LTS ed EF Core 10.
 
 ## Contatti
 

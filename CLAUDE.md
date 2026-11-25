@@ -2,7 +2,7 @@
 
 ## Stack
 
-- ASP.NET Core Web API (net8.0), EF Core 8 (SQL Server), ASP.NET Identity + JWT
+- ASP.NET Core Web API (net10.0), EF Core 10 (SQL Server), ASP.NET Identity + JWT
   Bearer, Serilog, Swagger
 - xUnit + WebApplicationFactory
 
