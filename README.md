@@ -146,6 +146,7 @@ Dall'audit (sezioni "fuori scope" e milestone future):
 - **SuperAdmin ed email.** Oggi gli admin si creano a mano via DB. Previsto: ruolo `SuperAdmin`, `POST /Account/admins` con invito via email (token Identity monouso a scadenza), `POST /Account/set-password`, protezione dell'ultimo SuperAdmin. Prerequisito: un `IEmailSender` (Mailpit/smtp4dev in sviluppo, SMTP in produzione); la stessa infrastruttura abilita "password dimenticata".
 - **Email → id.** Le route con `{email}` di Cart e Order sono state rimosse: restano solo `/me`. Resta da migrare la chiave email → `UserId` nel DB: carrello e ordini sono ancora legati all'email (`Cart.Email`, `Order.CustomerEmail`).
 - **Cookie httpOnly.** Il JWT sta in `localStorage` (via redux-persist): un XSS può leggerlo. La soluzione è cookie httpOnly + refresh token, che richiede modifiche al BE. Al deploy va impostata una CSP come header HTTP.
+- **Ordini per utente.** L'admin non può filtrare gli ordini per utente (dopo la rimozione delle route con `{email}` resta solo `GET /Order` paginato). Proposta: `GET /Order?customerId=`, solo Admin.
 - **Seller nel backoffice.** Il BE consente a `Seller` prodotti e categorie, il backoffice del FE è solo per `Admin`.
 
 ## Contatti
