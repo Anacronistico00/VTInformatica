@@ -105,7 +105,7 @@ public class AccountDeactivationTests
         Assert.True(DateTime.UtcNow - user.DeactivatedAt!.Value < TimeSpan.FromMinutes(1));
 
         // Il controllo del token rende la disattivazione immediata.
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/Cart/{email}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/Cart/me")).StatusCode);
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public class AccountDeactivationTests
         Assert.NotNull(suspended.DeactivatedAt);
 
         // Effetto immediato: il token del sospeso non vale più; il login dice "sospeso".
-        Assert.Equal(HttpStatusCode.Unauthorized, (await user.GetAsync($"/Cart/{email}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await user.GetAsync("/Cart/me")).StatusCode);
         var login = await TestHelpers.LoginAsync(_factory.CreateClient(), email);
         Assert.Equal(HttpStatusCode.Forbidden, login.StatusCode);
         Assert.Equal("account_suspended", await CodeAsync(login));
@@ -352,7 +352,7 @@ public class AccountDeactivationTests
 
         // Il token restituito è subito utilizzabile.
         var client = TestHelpers.AuthorizedClient(_factory, token);
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/Cart/{email}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Cart/me")).StatusCode);
     }
 
     [Fact]

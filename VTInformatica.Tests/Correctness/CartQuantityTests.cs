@@ -24,7 +24,7 @@ public class CartQuantityTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var (email, client) = await NewUserAsync();
 
-        var response = await TestHelpers.AddToCartAsync(client, email, productId, quantity);
+        var response = await TestHelpers.AddToCartAsync(client, productId, quantity);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Empty(await GetCartItemsAsync(client, email));
@@ -36,7 +36,7 @@ public class CartQuantityTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 5);
         var (email, client) = await NewUserAsync();
 
-        var response = await TestHelpers.AddToCartAsync(client, email, productId, quantity: 6);
+        var response = await TestHelpers.AddToCartAsync(client, productId, quantity: 6);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Empty(await GetCartItemsAsync(client, email));
@@ -47,9 +47,9 @@ public class CartQuantityTests
     {
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 5);
         var (email, client) = await NewUserAsync();
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productId, quantity: 3)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productId, quantity: 3)).StatusCode);
 
-        var response = await TestHelpers.AddToCartAsync(client, email, productId, quantity: 3);
+        var response = await TestHelpers.AddToCartAsync(client, productId, quantity: 3);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal(3, Assert.Single(await GetCartItemsAsync(client, email)).Quantity);
@@ -61,7 +61,7 @@ public class CartQuantityTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 5);
         var (email, client) = await NewUserAsync();
 
-        var response = await TestHelpers.AddToCartAsync(client, email, productId, quantity: 5);
+        var response = await TestHelpers.AddToCartAsync(client, productId, quantity: 5);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(5, Assert.Single(await GetCartItemsAsync(client, email)).Quantity);
@@ -72,7 +72,7 @@ public class CartQuantityTests
     {
         var (email, client) = await NewUserAsync();
 
-        var response = await TestHelpers.AddToCartAsync(client, email, productId: int.MaxValue, quantity: 1);
+        var response = await TestHelpers.AddToCartAsync(client, productId: int.MaxValue, quantity: 1);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -86,7 +86,7 @@ public class CartQuantityTests
 
     private static async Task<ICollection<GetCartItemDto>> GetCartItemsAsync(HttpClient client, string email)
     {
-        var cart = await client.GetFromJsonAsync<GetCartDto>($"/Cart/{email}");
+        var cart = await client.GetFromJsonAsync<GetCartDto>("/Cart/me");
         return cart!.Items;
     }
 }

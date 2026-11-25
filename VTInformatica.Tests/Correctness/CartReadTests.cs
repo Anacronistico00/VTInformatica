@@ -64,7 +64,7 @@ public class CartReadTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10, price: 10m);
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productId, quantity: 3)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productId, quantity: 3)).StatusCode);
 
         var before = await client.GetFromJsonAsync<GetCartDto>("/Cart/me");
         using (var scope = _factory.Services.CreateScope())

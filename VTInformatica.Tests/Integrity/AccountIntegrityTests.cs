@@ -77,7 +77,7 @@ public class AccountIntegrityTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productId, quantity: 2)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productId, quantity: 2)).StatusCode);
         var userId = await TestHelpers.GetUserIdAsync(_factory, email);
 
         var response = await client.PutAsJsonAsync($"/Account/UpdateUser/{userId}", new
@@ -93,7 +93,7 @@ public class AccountIntegrityTests
         Assert.Equal(email, user.Email);
         Assert.Equal(email, user.UserName);
 
-        var cart = await client.GetFromJsonAsync<GetCartDto>($"/Cart/{email}");
+        var cart = await client.GetFromJsonAsync<GetCartDto>("/Cart/me");
         Assert.Equal(2, Assert.Single(cart!.Items).Quantity);
     }
 
@@ -155,12 +155,12 @@ public class AccountIntegrityTests
         // Il JWT di un account disattivato non deve più autenticare, anche se non è scaduto.
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/Cart/{email}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Cart/me")).StatusCode);
 
         await DeactivateAsync(email);
 
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/Cart/{email}")).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/Order/user/{email}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/Cart/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/Order/me")).StatusCode);
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public class AccountIntegrityTests
             Assert.True((await userManager.DeleteAsync((await userManager.FindByEmailAsync(email))!)).Succeeded);
         }
 
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/Cart/{email}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/Cart/me")).StatusCode);
     }
 
     private async Task DeactivateAsync(string email)

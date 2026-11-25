@@ -22,12 +22,12 @@ public class OrderErrorTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productId, quantity: 1)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productId, quantity: 1)).StatusCode);
         // Soft delete scritto direttamente (senza la pulizia dei carrelli del delete via API):
         // simula un'eliminazione concorrente tra aggiunta al carrello e checkout.
         await SetProductDeletedAsync(productId);
 
-        var response = await client.PostAsync($"/Order/from-cart/{email}", null);
+        var response = await client.PostAsync("/Order/me/from-cart", null);
 
         await ProblemAssert.IsProblemAsync(response, HttpStatusCode.NotFound, "product_not_found");
     }
@@ -38,10 +38,10 @@ public class OrderErrorTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productId, quantity: 5)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productId, quantity: 5)).StatusCode);
         await SetStockAsync(productId, 2);
 
-        var response = await client.PostAsync($"/Order/from-cart/{email}", null);
+        var response = await client.PostAsync("/Order/me/from-cart", null);
 
         await ProblemAssert.IsProblemAsync(response, HttpStatusCode.Conflict, "insufficient_stock");
     }
@@ -52,7 +52,7 @@ public class OrderErrorTests
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
 
-        await ProblemAssert.IsEmptyListAsync(await client.GetAsync($"/Order/user/{email}"));
+        await ProblemAssert.IsEmptyListAsync(await client.GetAsync("/Order/me"));
     }
 
     [Fact]
@@ -116,13 +116,13 @@ public class OrderUnhandledErrorTests : IClassFixture<FaultInjectionFactory>
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productId, quantity: 1)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productId, quantity: 1)).StatusCode);
 
         HttpResponseMessage response;
         _factory.CartItemDeleteFailure.Enable();
         try
         {
-            response = await client.PostAsync($"/Order/from-cart/{email}", null);
+            response = await client.PostAsync("/Order/me/from-cart", null);
         }
         finally
         {

@@ -19,7 +19,7 @@ public class SmokeTests
     {
         var client = _factory.CreateClient();
 
-        var response = await client.GetAsync($"/Cart/{TestHelpers.UniqueEmail()}");
+        var response = await client.GetAsync("/Cart/me");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -31,7 +31,7 @@ public class SmokeTests
         var token = await TestHelpers.RegisterAndLoginAsync(_factory, email);
         var client = TestHelpers.AuthorizedClient(_factory, token);
 
-        var response = await client.GetAsync($"/Cart/{email}");
+        var response = await client.GetAsync("/Cart/me");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }

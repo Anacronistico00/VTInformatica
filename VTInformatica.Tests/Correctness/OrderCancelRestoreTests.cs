@@ -105,8 +105,8 @@ public class OrderCancelRestoreTests : IClassFixture<FaultInjectionFactory>
         var productB = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productA, 2)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productB, 3)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productA, 2)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productB, 3)).StatusCode);
         var create = await client.PostAsync("/Order/me/from-cart", null);
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         var orderId = (await System.Net.Http.Json.HttpContentJsonExtensions
