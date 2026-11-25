@@ -56,7 +56,7 @@ jobs:
       - name: Model e migration allineati
         run: |
           dotnet tool install --global dotnet-ef --version 10.0.15
-          dotnet ef migrations has-pending-model-changes --project VTInformatica --no-build -c Release
+          dotnet ef migrations has-pending-model-changes --project VTInformatica --no-build --configuration Release
         env:
           Jwt__SecurityKey: ci-only-key-for-ef-tools-0123456789-abcdefghijklmnopqrstuvwxyz
 
