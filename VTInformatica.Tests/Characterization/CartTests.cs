@@ -23,11 +23,11 @@ public class CartTests
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
 
-        var add = await TestHelpers.AddToCartAsync(client, email, productId, quantity: 2);
+        var add = await TestHelpers.AddToCartAsync(client, productId, quantity: 2);
 
         Assert.Equal(HttpStatusCode.OK, add.StatusCode);
 
-        var cart = await client.GetFromJsonAsync<GetCartDto>($"/Cart/{email}");
+        var cart = await client.GetFromJsonAsync<GetCartDto>("/Cart/me");
         var item = Assert.Single(cart!.Items);
         Assert.Equal(2, item.Quantity);
         Assert.Equal(25.50m, item.Product.Price);
@@ -41,10 +41,10 @@ public class CartTests
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
 
-        await TestHelpers.AddToCartAsync(client, email, productId, quantity: 1);
-        await TestHelpers.AddToCartAsync(client, email, productId, quantity: 3);
+        await TestHelpers.AddToCartAsync(client, productId, quantity: 1);
+        await TestHelpers.AddToCartAsync(client, productId, quantity: 3);
 
-        var cart = await client.GetFromJsonAsync<GetCartDto>($"/Cart/{email}");
+        var cart = await client.GetFromJsonAsync<GetCartDto>("/Cart/me");
         var item = Assert.Single(cart!.Items);
         Assert.Equal(4, item.Quantity);
     }
@@ -55,7 +55,7 @@ public class CartTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var client = _factory.CreateClient();
 
-        var response = await TestHelpers.AddToCartAsync(client, TestHelpers.UniqueEmail(), productId, quantity: 1);
+        var response = await TestHelpers.AddToCartAsync(client, productId, quantity: 1);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

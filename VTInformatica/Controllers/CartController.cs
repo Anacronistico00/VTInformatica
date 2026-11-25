@@ -38,26 +38,6 @@ namespace VTInformatica.Controllers
         [HttpDelete("me/clear")]
         public Task<IActionResult> ClearMyCart() => ClearCartCore(User.GetEmail());
 
-        [Obsolete("Usare GET /Cart/me: l'identità arriva dal token.")]
-        [HttpGet("{email}")]
-        public async Task<IActionResult> GetCart(string email)
-        {
-            if (!User.HasEmail(email))
-                return Forbid();
-
-            return await GetCartCore(email);
-        }
-
-        [Obsolete("Usare POST /Cart/me/add: l'identità arriva dal token.")]
-        [HttpPost("{email}/add")]
-        public async Task<IActionResult> AddItem(string email, [FromBody] CartItemDto dto)
-        {
-            if (!User.HasEmail(email))
-                return Forbid();
-
-            return await AddItemCore(email, dto);
-        }
-
         private async Task<IActionResult> GetCartCore(string? email)
         {
             if (string.IsNullOrEmpty(email))
@@ -112,15 +92,6 @@ namespace VTInformatica.Controllers
             return Ok(new { message = "Quantità dell'articolo aggiornata con successo." });
         }
 
-        [Obsolete("Usare DELETE /Cart/me/clear: l'identità arriva dal token.")]
-        [HttpDelete("{email}/clear")]
-        public async Task<IActionResult> ClearCart(string email)
-        {
-            if (!User.HasEmail(email))
-                return Forbid();
-
-            return await ClearCartCore(email);
-        }
     }
 
 }

@@ -117,8 +117,8 @@ public static class TestHelpers
         return product!.Quantity;
     }
 
-    public static Task<HttpResponseMessage> AddToCartAsync(HttpClient client, string email, int productId, int quantity) =>
-        client.PostAsJsonAsync($"/Cart/{email}/add", new CartItemDto { ProductId = productId, Quantity = quantity });
+    public static Task<HttpResponseMessage> AddToCartAsync(HttpClient client, int productId, int quantity) =>
+        client.PostAsJsonAsync("/Cart/me/add", new CartItemDto { ProductId = productId, Quantity = quantity });
 
     /// <summary>Crea un utente con un ordine di <paramref name="quantity"/> pezzi del prodotto indicato.</summary>
     public static async Task<(string Email, string Token, GetOrderDto Order)> CreateUserWithOrderAsync(
@@ -128,10 +128,10 @@ public static class TestHelpers
         var token = await RegisterAndLoginAsync(factory, email);
         var client = AuthorizedClient(factory, token);
 
-        var add = await AddToCartAsync(client, email, productId, quantity);
+        var add = await AddToCartAsync(client, productId, quantity);
         Assert.Equal(HttpStatusCode.OK, add.StatusCode);
 
-        var create = await client.PostAsync($"/Order/from-cart/{email}", null);
+        var create = await client.PostAsync("/Order/me/from-cart", null);
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
 
         var order = await create.Content.ReadFromJsonAsync<GetOrderDto>();

@@ -44,7 +44,7 @@ public class MeRoutesTests
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var emailA = TestHelpers.UniqueEmail();
         var clientA = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, emailA));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(clientA, emailA, productId, 3)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(clientA, productId, 3)).StatusCode);
         var clientB = TestHelpers.AuthorizedClient(_factory,
             await TestHelpers.RegisterAndLoginAsync(_factory, TestHelpers.UniqueEmail()));
 

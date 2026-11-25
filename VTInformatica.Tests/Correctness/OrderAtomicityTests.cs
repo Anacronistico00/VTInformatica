@@ -22,13 +22,13 @@ public class OrderAtomicityTests : IClassFixture<FaultInjectionFactory>
         var productId = await TestHelpers.SeedProductAsync(_factory, quantity: 10);
         var email = TestHelpers.UniqueEmail();
         var client = TestHelpers.AuthorizedClient(_factory, await TestHelpers.RegisterAndLoginAsync(_factory, email));
-        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, email, productId, quantity: 3)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await TestHelpers.AddToCartAsync(client, productId, quantity: 3)).StatusCode);
 
         HttpResponseMessage response;
         _factory.CartItemDeleteFailure.Enable();
         try
         {
-            response = await client.PostAsync($"/Order/from-cart/{email}", null);
+            response = await client.PostAsync("/Order/me/from-cart", null);
         }
         finally
         {
